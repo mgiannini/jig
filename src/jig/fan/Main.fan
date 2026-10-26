@@ -38,12 +38,25 @@ class Main : AbstractMain
         return 1
       }
       targets = workPods(Env.cur.workDir)
+      if (targets.isEmpty)
+      {
+        echo("ERR: no pods found in ${Env.cur.workDir.osPath}/lib/fan/")
+        return 1
+      }
     }
 
     if (targets.isEmpty) return usage
-    // TODO: resolve targets, spawn fant, render status bar
-    echo("jig: ${targets}")
-    return 0
+
+    // js/es use their own runners with a different output format
+    if (es) return Runner.passthrough("-es", targets)
+    if (js) return Runner.passthrough("-js", targets)
+
+    Str[]? tests
+    try tests = Resolver.resolve(targets)
+    catch (ArgErr e) { echo("ERR: $e.msg"); return 1 }
+    if (tests.isEmpty) { echo("ERR: no tests found"); return 1 }
+
+    return Runner(targets, tests).run
   }
 
   ** Return sorted names of all pods under '<dir>/lib/fan/'.
