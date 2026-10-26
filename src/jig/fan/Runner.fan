@@ -253,10 +253,16 @@ class Runner : FantListener
       if (!running.val) return
       live := liveLine
       buf  := StrBuf().add(erase)
-      if (live != null) buf.add(live).add("\n")
+      drawn := 0
+      if (live != null) { buf.add(live).add("\n"); drawn++ }
+
+      // blank line separates results from the bar; kept between
+      // types too so the bar doesn't jump as each type finishes
+      if (!quiet && curPod != null) { buf.add("\n"); drawn++ }
+
       // live line already shows the method in default mode
       buf.add(StatusBar.render(total, passed, failed, quiet ? current : null, elapsed, width))
-      liveDrawn = live == null ? 0 : 1
+      liveDrawn = drawn
       out.print(buf.toStr).flush
     }
     finally lock.unlock

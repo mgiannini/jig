@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="397" height="282" viewBox="0 0 397 282">
-<rect width="397" height="282" rx="8" fill="#1e2127"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="397" height="301" viewBox="0 0 397 301">
+<rect width="397" height="301" rx="8" fill="#1e2127"/>
 <circle cx="18" cy="18" r="6" fill="#ff5f56"/>
 <circle cx="38" cy="18" r="6" fill="#ffbd2e"/>
 <circle cx="58" cy="18" r="6" fill="#27c93f"/>
@@ -32,11 +32,11 @@
 <text x="34.8" y="149" fill="#d7dae0">CsvReaderTest</text>
 <text x="160.8" y="149" fill="#c678dd">[10/10]</text>
 <text x="228.0" y="149" fill="#98c379">pass</text>
-<text x="270.0" y="149" fill="#d7dae0">(7ms)</text>
+<text x="270.0" y="149" fill="#d7dae0">(6ms)</text>
 <text x="34.8" y="168" fill="#d7dae0">InvoiceTest</text>
 <text x="160.8" y="168" fill="#c678dd">[12/12]</text>
 <text x="228.0" y="168" fill="#98c379">pass</text>
-<text x="270.0" y="168" fill="#d7dae0">(1275ms)</text>
+<text x="270.0" y="168" fill="#d7dae0">(1277ms)</text>
 <text x="18.0" y="206" fill="#d7dae0" font-weight="bold">acmeWeb</text>
 <text x="34.8" y="225" fill="#d7dae0">SessionTest</text>
 <text x="144.0" y="225" fill="#c678dd">[</text>
@@ -49,12 +49,12 @@
 <text x="160.8" y="244" fill="#c678dd">9/16]</text>
 <text x="219.6" y="244" fill="#7f848e">testFilter</text>
 <text x="312.0" y="244" fill="#7f848e">(0.1sec)</text>
-<text x="18.0" y="263" fill="#d7dae0">[</text>
-<rect x="26.4" y="252" width="100.8" height="13" rx="1" fill="#98c379"/>
-<rect x="127.2" y="252" width="67.2" height="13" rx="1" fill="#98c379" opacity="0.22"/>
-<text x="194.4" y="263" fill="#d7dae0">]</text>
-<text x="211.2" y="263" fill="#d7dae0" font-weight="bold">60/93</text>
-<text x="270.0" y="263" fill="#98c379">✓</text>
-<text x="286.8" y="263" fill="#98c379">60</text>
-<text x="320.4" y="263" fill="#7f848e">10.0sec</text>
+<text x="18.0" y="282" fill="#d7dae0">[</text>
+<rect x="26.4" y="271" width="100.8" height="13" rx="1" fill="#98c379"/>
+<rect x="127.2" y="271" width="67.2" height="13" rx="1" fill="#98c379" opacity="0.22"/>
+<text x="194.4" y="282" fill="#d7dae0">]</text>
+<text x="211.2" y="282" fill="#d7dae0" font-weight="bold">60/93</text>
+<text x="270.0" y="282" fill="#98c379">✓</text>
+<text x="286.8" y="282" fill="#98c379">60</text>
+<text x="320.4" y="282" fill="#7f848e">10.0sec</text>
 </g></svg>
