@@ -16,12 +16,28 @@ using concurrent
 ** status bar with failures printed above it.
 class Runner : FantListener
 {
-  new make(Str[] targets, Str[] tests)
+  ** Create runner; in 'quiet' mode only failures are printed,
+  ** otherwise a pass/fail line is printed for each test type
+  ** grouped by pod.
+  new make(Str[] targets, Str[] tests, Bool quiet := false, Bool? tty := null, OutStream out := Env.cur.out)
   {
     this.targets = targets
     this.total   = tests.size
-    this.tty     = Term.isTty
-    this.width   = tty ? Term.width : 80
+
+    // expected methods per type and type name column per pod
+    tests.each |q|
+    {
+      type := typeOf(q)
+      typeTotals[type] = (typeTotals[type] ?: 0) + 1
+      pod  := podOf(q)
+      name := type[pod.size+2..-1]
+      podWidths[pod] = (podWidths[pod] ?: 0).max(name.size)
+    }
+
+    this.quiet   = quiet
+    this.tty     = tty ?: Term.isTty
+    this.width   = this.tty ? Term.width : 80
+    this.out     = out
   }
 
   ** Run fant for '-es' or '-js' with output passed through as-is.
@@ -39,11 +55,12 @@ class Runner : FantListener
     pool := startTicker
     exit := Term.exec(Term.fant.addAll(targets), |line| { parser.parseLine(line) }) |->Bool| { parser.isDone }
     parser.finish
+    if (!quiet) printType
 
     // stop ticker before writing summary
     running.val = false
     pool?.stop?.join(1sec)
-    if (tty) out.print(Term.clearLine).flush
+    if (tty) out.print(erase).flush
     return summary(exit, parser.isDone)
   }
 
@@ -68,26 +85,42 @@ class Runner : FantListener
 
   override Void onStart(Str qname)
   {
+    // fallback if a type ends without reaching its expected count
+    type := typeOf(qname)
+    if (!quiet && type != curType)
+    {
+      printType
+      printPod(podOf(type))
+      typeStart = now
+    }
+    curType = type
     current = qname
+    methodStart = now
     redraw
   }
 
   override Void onPass(Str qname, Int verifies)
   {
     passed++
-    redraw
+    typePassed++
+    if (quiet) redraw
+    else checkType
   }
 
   override Void onFail(Str qname, Str[] output, Str[] trace)
   {
     failed++
     failures.add(qname)
-    lines := Str[,]
-    lines.add(color(Term.red, "✗ $qname"))
-    output.each |s| { lines.add(color(Term.dim, "  | $s")) }
-    trimTrace(trace).each |s| { lines.add("  $s") }
-    lines.add("")
-    printAbove(lines)
+    if (quiet)
+    {
+      printAbove(failLines(qname, output, trace, "").add(""))
+    }
+    else
+    {
+      typeFailed++
+      typeFails.addAll(failLines(qname[qname.index(".")+1..-1], output, trace, "    "))
+      checkType
+    }
   }
 
   override Void onStray(Str line) { printAbove([line]) }
@@ -98,21 +131,104 @@ class Runner : FantListener
 // Rendering
 //////////////////////////////////////////////////////////////////////////
 
+  ** Lines for a failed test with a red header to stand out.
+  private Str[] failLines(Str name, Str[] output, Str[] trace, Str indent)
+  {
+    lines := [indent + color(Term.red, "FAIL: $name")]
+    output.each |s| { lines.add(color(Term.dim, "$indent  | $s")) }
+    trimTrace(trace).each |s| { lines.add("$indent  $s") }
+    return lines
+  }
+
+  ** Print current type line once all its expected methods ran.
+  private Void checkType()
+  {
+    if (typePassed + typeFailed >= (typeTotals[curType] ?: 0)) printType
+    else redraw
+  }
+
+  ** Print pod header if this is the first type of a new pod.
+  private Void printPod(Str pod)
+  {
+    if (pod == curPod) return
+    lines := Str[,]
+    if (curPod != null) lines.add("")
+    lines.add(tty ? "$Term.bold$pod$Term.reset" : pod)
+    curPod = pod
+    printAbove(lines)
+  }
+
+  ** Print final line for current type followed by its failures.
+  private Void printType()
+  {
+    type := curType
+    if (type == null) return
+    curType = null
+
+    expected := typeTotals[type] ?: typePassed + typeFailed
+    ok := typeFailed == 0 && typePassed >= expected
+    lines := ["  ${typeName(type)}  " +
+      color(Term.magenta, "[$typePassed/$expected]") + " " +
+      (ok ? color(Term.green, "pass") : color(Term.red, "fail")) +
+      " (${StatusBar.fmtDurMs(now - typeStart)})"]
+    lines.addAll(typeFails)
+
+    typePassed = 0
+    typeFailed = 0
+    typeFails  = Str[,]
+    printAbove(lines)
+  }
+
+  ** Line for the type currently running, shown above the status
+  ** bar with live counts and the running method, or null if none.
+  internal Str? liveLine()
+  {
+    type := curType
+    if (quiet || type == null) return null
+
+    count  := "[$typePassed/${typeTotals[type] ?: 0}]"
+    fails  := typeFailed > 0 ? " $typeFailed failed" : ""
+    method := current == null ? "" : current[current.indexr(".")+1..-1]
+    timer  := " (${StatusBar.fmtDur(now - methodStart)})"
+
+    // keep on one line so cursor math in 'erase' holds
+    avail := width - 1 - "  ${typeName(type)}  $count$fails  $timer".size
+    if (avail < 4) method = ""
+    else if (method.size > avail) method = method[0..<avail-1] + "…"
+
+    s := "  ${typeName(type)}  " + color(Term.magenta, count)
+    if (typeFailed > 0) s += " " + color(Term.red, "$typeFailed failed")
+    if (!method.isEmpty) s += "  " + color(Term.dim, method + timer)
+    return s
+  }
+
+  ** Type name without pod, padded to align within its pod.
+  private Str typeName(Str type)
+  {
+    pod := podOf(type)
+    return type[pod.size+2..-1].padr(podWidths[pod] ?: 0)
+  }
+
+  private static Str typeOf(Str qname) { qname[0..<qname.indexr(".")] }
+
+  private static Str podOf(Str qname) { qname[0..<qname.index("::")] }
+
   ** Print lines above the status bar.
   private Void printAbove(Str[] lines)
   {
     lock.lock
     try
     {
-      if (tty) out.print(Term.clearLine)
+      if (tty) out.print(erase)
       lines.each |s| { out.printLine(s) }
       redraw
     }
     finally lock.unlock
   }
 
-  ** Redraw status bar in place; called from both the output
-  ** pump thread and the ticker, so serialized with 'lock'.
+  ** Redraw live type line and status bar in place; called from
+  ** both the output pump thread and the ticker, so serialized
+  ** with 'lock'.
   private Void redraw()
   {
     if (!tty) return
@@ -120,10 +236,24 @@ class Runner : FantListener
     try
     {
       if (!running.val) return
-      bar := StatusBar.render(total, passed, failed, current, elapsed, width)
-      out.print(Term.clearLine).print(bar).flush
+      live := liveLine
+      buf  := StrBuf().add(erase)
+      if (live != null) buf.add(live).add("\n")
+      // live line already shows the method in default mode
+      buf.add(StatusBar.render(total, passed, failed, quiet ? current : null, elapsed, width))
+      liveDrawn = live == null ? 0 : 1
+      out.print(buf.toStr).flush
     }
     finally lock.unlock
+  }
+
+  ** Escape sequence to clear the status bar and any live
+  ** lines above it, leaving the cursor where they started.
+  private Str erase()
+  {
+    s := Term.clearLine + Term.upClearLine * liveDrawn
+    liveDrawn = 0
+    return s
   }
 
   ** Strip test harness frames (verify internals, reflection,
@@ -161,6 +291,8 @@ class Runner : FantListener
     dur := StatusBar.fmtDur(elapsed)
     vs  := verifies == null ? "" : " [$verifies.toLocale verifies]"
 
+    if (curPod != null) out.printLine
+
     if (!failures.isEmpty)
     {
       out.printLine("Failed:")
@@ -189,14 +321,21 @@ class Runner : FantListener
 
   private Str color(Str c, Str s) { tty ? "$c$s$Term.reset" : s }
 
-  private Duration elapsed() { Duration.now - start }
+  private Duration elapsed() { now - start }
+
+  ** Current time; tests may freeze it with 'fixedNow'.
+  private Duration now() { fixedNow ?: Duration.now }
+
+  ** Fixed clock for tests.
+  internal Duration? fixedNow
 
 //////////////////////////////////////////////////////////////////////////
 // Fields
 //////////////////////////////////////////////////////////////////////////
 
-  private OutStream out := Env.cur.out
+  private OutStream out
   private const Str[] targets
+  private const Bool quiet
   private const Int total
   private const Bool tty
   private const Int width
@@ -205,7 +344,17 @@ class Runner : FantListener
   private Int failed
   private Int? verifies
   private Str? current
+  private Duration typeStart := Duration.now
+  private Duration methodStart := Duration.now
   private Str[] failures := [,]
+  private Str:Int typeTotals := [:]
+  private Str:Int podWidths := [:]
+  private Str? curPod
+  private Str? curType
+  private Int typePassed
+  private Int typeFailed
+  private Str[] typeFails := [,]
+  private Int liveDrawn
   private const Lock lock := Lock.makeReentrant
   private const AtomicBool running := AtomicBool(true)
 }

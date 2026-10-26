@@ -65,9 +65,11 @@ const class Term
   }
 
   static const Str clearLine := "\r\u001b[2K"
+  static const Str upClearLine := "\u001b[1A\u001b[2K"
   static const Str reset     := "\u001b[0m"
   static const Str bold      := "\u001b[1m"
   static const Str dim       := "\u001b[2m"
   static const Str red       := "\u001b[31m"
   static const Str green     := "\u001b[32m"
+  static const Str magenta   := "\u001b[35m"
 }

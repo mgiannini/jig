@@ -24,6 +24,9 @@ class Main : AbstractMain
   @Opt { help = "test all pods in workDir lib/fan/" }
   Bool work
 
+  @Opt { help = "only print failures and status bar"; aliases = ["q", "-quiet"] }
+  Bool quiet
+
   @Arg { help = "<pod>, <pod>::<Type>, or <pod>::<Type>.<method>" }
   Str[] targets := [,]
 
@@ -56,7 +59,7 @@ class Main : AbstractMain
     catch (ArgErr e) { echo("ERR: $e.msg"); return 1 }
     if (tests.isEmpty) { echo("ERR: no tests found"); return 1 }
 
-    return Runner(targets, tests).run
+    return Runner(targets, tests, quiet).run
   }
 
   ** Return sorted names of all pods under '<dir>/lib/fan/'.
