@@ -7,7 +7,7 @@ class Build : BuildPod
   new make()
   {
     podName = "jig"
-    summary = "A better fantom test runner"
+    summary = "A better Fantom test runner"
     version = Version("0.1")
     meta = [
       "org.name":     "Novant",
