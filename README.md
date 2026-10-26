@@ -10,6 +10,43 @@ printed with only the output and stack frames that matter.
 
 ![jig running two pods: finished classes with pass counts and times, the class in progress with a live timer, and the status bar](assets/demo.svg)
 
+## Install
+
+Install from [Eggbox](https://eggbox.fantomfactory.org) with `fanr`:
+
+```
+fanr install jig
+```
+
+If your `etc/fanr/config.props` doesn't default to Eggbox, pass the repo:
+
+```
+fanr install -r https://eggbox.fantomfactory.org/fanr/ jig
+```
+
+This installs into your Fantom home, so `fan jig` works from any workenv.
+
+To build from source instead, copy the pod into your Fantom home
+(`fan -version` prints the `fan.home` path):
+
+```
+fan src/jig/build.fan
+cp lib/fan/jig.pod <fan.home>/lib/fan/
+```
+
+### Run as `jig`
+
+On macOS or Linux, save this script as `jig` in a directory on your `PATH`
+(for example `/usr/local/bin/jig`) and make it executable with
+`chmod +x`:
+
+```sh
+#!/bin/sh
+exec fan jig "$@"
+```
+
+Now `jig acme` works the same as `fan jig acme`.
+
 ## Usage
 
 ```
@@ -66,6 +103,69 @@ shows progress, pass/fail counts, and total elapsed time. In default mode the
 class currently running sits just above it with live counts and a timer for
 the running method. Colors and the status bar are disabled when output is
 piped, `CI` is set, or `TERM=dumb`.
+
+## Platform support
+
+Jig is built for macOS and Linux terminals. It runs on Windows, but the
+terminal output has rough edges:
+
+  - **Colors and status bar.** Jig uses ANSI escape codes, which Windows
+    Terminal supports but the legacy console does not. Use Windows Terminal,
+    or set `TERM=dumb` to get plain output.
+  - **Symbols.** `✓ ✗ █ ░` need a UTF-8 console. Run `chcp 65001` first if
+    they show as garbled characters.
+  - **Terminal width.** Width detection uses `stty`, which Windows lacks, so
+    jig assumes 80 columns. Set `COLUMNS` to your window width if long lines
+    wrap.
+
+## Build scripts
+
+`BuildPod` runs tests with `fant` in its `test` target, which `full` also
+calls. Override `test` to use jig instead:
+
+```fantom
+class Build : BuildPod
+{
+  ...
+
+  @Target { help = "Run the pod unit tests via jig" }
+  override Void test()
+  {
+    fan := devHomeDir + (Env.cur.os == "win32" ? `bin/fan.bat` : `bin/fan`)
+    Exec(this, [fan.osPath, "jig", podName]).run
+  }
+}
+```
+
+Failing tests fail the build. For a `BuildGroup`, override `full` to clean
+and compile every pod first, then test them all in a single jig run:
+
+```fantom
+class Build : BuildGroup
+{
+  ...
+
+  @Target { help = "Clean and compile all pods, then test all via jig" }
+  Void full()
+  {
+    runOnChildren("clean")
+    runOnChildren("compile")
+    fan := devHomeDir + (Env.cur.os == "win32" ? `bin/fan.bat` : `bin/fan`)
+    Exec(this, [fan.osPath, "jig"].addAll(podNames(this))).run
+  }
+
+  ** Pod names of all BuildPod scripts in this group (recursive)
+  private Str[] podNames(BuildScript s)
+  {
+    if (s is BuildPod) return [((BuildPod)s).podName]
+    if (s is BuildGroup) return ((BuildGroup)s).children.map |c| { podNames(c) }.flatten
+    return Str[,]
+  }
+}
+```
+
+`Exec` captures jig's output, so in build scripts jig prints plain
+output without colors or the status bar.
 
 ## How it works
 
