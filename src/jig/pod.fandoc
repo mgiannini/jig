@@ -57,10 +57,10 @@ Usage [#usage]
 
 Targets use the same syntax as 'fant':
 
-  fan jig acme                      // all tests in pod
-  fan jig acme::FooTest             // all tests in a type
-  fan jig acme::FooTest.testBar     // a single test method
-  fan jig -work                     // all pods in workDir lib/fan/
+  fan jig acme                      # all tests in pod
+  fan jig acme::FooTest             # all tests in a type
+  fan jig acme::FooTest.testBar     # a single test method
+  fan jig -work                     # all pods in workDir lib/fan/
 
 Options:
 

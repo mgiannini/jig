@@ -14,13 +14,13 @@ printed with only the output and stack frames that matter.
 
 Install from [Eggbox](https://eggbox.fantomfactory.org) with `fanr`:
 
-```
+```sh
 fanr install jig
 ```
 
 If your `etc/fanr/config.props` doesn't default to Eggbox, pass the repo:
 
-```
+```sh
 fanr install -r https://eggbox.fantomfactory.org/fanr/ jig
 ```
 
@@ -29,7 +29,7 @@ This installs into your Fantom home, so `fan jig` works from any workenv.
 To build from source instead, copy the pod into your Fantom home
 (`fan -version` prints the `fan.home` path):
 
-```
+```sh
 fan src/jig/build.fan
 cp lib/fan/jig.pod <fan.home>/lib/fan/
 ```
@@ -55,11 +55,11 @@ jig [options] <targets>*
 
 Targets use the same syntax as `fant`:
 
-```
-fan jig acme                      // all tests in pod
-fan jig acme::FooTest             // all tests in a type
-fan jig acme::FooTest.testBar     // a single test method
-fan jig -work                     // all pods in workDir lib/fan/
+```sh
+fan jig acme                      # all tests in pod
+fan jig acme::FooTest             # all tests in a type
+fan jig acme::FooTest.testBar     # a single test method
+fan jig -work                     # all pods in workDir lib/fan/
 ```
 
 Options:
