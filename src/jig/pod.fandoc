@@ -36,7 +36,9 @@ If your 'etc/fanr/config.props' doesn't default to Eggbox, pass the repo:
 
   fanr install -r https://eggbox.fantomfactory.org/fanr/ jig
 
-This installs into your Fantom home, so 'fan jig' works from any workenv.
+Run this from outside any workenv (a directory with no 'fan.props' above
+it). 'fanr' installs into the current env's 'lib/fan/', so outside a workenv
+jig lands in your Fantom home and 'fan jig' works from any workenv.
 
 To build from source instead, copy the pod into your Fantom home
 ('fan -version' prints the 'fan.home' path):
@@ -46,14 +48,18 @@ To build from source instead, copy the pod into your Fantom home
 
 Run as jig [#bin]
 =================
-On macOS or Linux, save this script as 'jig' in a directory on your 'PATH'
-(for example '/usr/local/bin/jig') and make it executable with
-'chmod +x':
+On macOS or Linux, save this script as 'jig' in the 'bin/' directory of the
+Fantom install you want it to use, next to 'fan' and 'fant' ('fan -version'
+prints the 'fan.home' path), and make it executable with 'chmod +x':
 
   #!/bin/sh
-  exec fan jig "$@"
+  . "${0%/*}/fanlaunch"
+  fanlaunch Fan jig "$@"
 
-Now 'jig acme' works the same as 'fan jig acme'.
+Now 'jig acme' works the same as 'fan jig acme'. Like 'fant' and 'fanr', it
+runs with the Fantom install it lives in, not whichever 'fan' is first on
+your 'PATH'. Don't symlink it elsewhere, since it finds 'fanlaunch' next to
+itself.
 
 Usage [#usage]
 **************
