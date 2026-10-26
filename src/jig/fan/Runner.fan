@@ -13,7 +13,8 @@ using concurrent
 *************************************************************************
 
 ** Runner spawns fant, parses its output, and renders a live
-** status bar with failures printed above it.
+** status bar with results printed above it.  Failures get one line
+** as they happen, with full output and trace held for the summary.
 class Runner : FantListener
 {
   ** Create runner; in 'quiet' mode only failures are printed,
@@ -118,15 +119,19 @@ class Runner : FantListener
   {
     failed++
     failures.add(qname)
+
+    // one line now; output and trace are saved for the summary so
+    // they are all together at the end rather than in the scrollback
+    failDetails.add(failLines(qname, output, trace, ""))
     if (quiet)
     {
-      printAbove(failLines(qname, output, trace, "").add(""))
+      printAbove([color(Term.red, "FAIL: $qname")])
     }
     else
     {
       typeFailed++
       podFailed++
-      typeFails.addAll(failLines(qname[qname.index(".")+1..-1], output, trace, "    "))
+      typeFails.add("    " + color(Term.red, "FAIL: " + qname[qname.index(".")+1..-1]))
       checkType
     }
   }
@@ -344,7 +349,14 @@ class Runner : FantListener
     dur := StatusBar.fmtDur(elapsed)
     vs  := verifies == null ? "" : " [$verifies.toLocale verifies]"
 
-    if (curPod != null) out.printLine
+    if (curPod != null || !failDetails.isEmpty) out.printLine
+
+    // full details for each failure, right above the summary line
+    failDetails.each |lines|
+    {
+      lines.each |s| { out.printLine(s) }
+      out.printLine
+    }
 
     Int code := 1
     if (!complete)
@@ -399,6 +411,7 @@ class Runner : FantListener
   private Duration typeStart := Duration.now
   private Duration methodStart := Duration.now
   private Str[] failures := [,]
+  private Str[][] failDetails := [,]
   private Str:Int typeTotals := [:]
   private const Bool multiPod
   private Int nameWidth

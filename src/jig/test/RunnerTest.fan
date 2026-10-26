@@ -65,8 +65,6 @@ class RunnerTest : Test
       ["acme",
        "  FooTest ····· [1/2] fail (2500ms)",
        "    FAIL: testB",
-       "      | echo",
-       "      sys::Err: boom",
        "  LongNameTest  [1/1] pass (1min 2sec)",
        "  [✗ 1 failed, 2 passed (1min 4sec)]",
        "",
@@ -145,7 +143,17 @@ class RunnerTest : Test
 
     verifyEq(r.summary(3, true), 1)
     verifyEq(buf.flip.readAllLines,
-      ["✗ 3 failed, 1 passed of 4 tests [1,234 verifies] in 0.0sec",
+      ["",
+       "FAIL: acme::FooTest.testA",
+       "  sys::Err: a",
+       "",
+       "FAIL: acme::FooTest.testC",
+       "  sys::Err: c",
+       "",
+       "FAIL: acme::LongNameTest.testD",
+       "  sys::Err: d",
+       "",
+       "✗ 3 failed, 1 passed of 4 tests [1,234 verifies] in 0.0sec",
        "✗ acme::FooTest.testA      [2/3 failed]",
        "✗ acme::FooTest.testC      [2/3 failed]",
        "✗ acme::LongNameTest.testD [1/1 failed]"])
@@ -254,8 +262,12 @@ class RunnerTest : Test
     r.onStart("acme::FooTest.testB")
     r.onFail("acme::FooTest.testB", [,], ["sys::Err: boom"])
     verifyEq(buf.flip.readAllLines,
-      ["FAIL: acme::FooTest.testB",
-       "  sys::Err: boom",
-       ""])
+      ["FAIL: acme::FooTest.testB"])
+
+    // details are held for the summary
+    buf.clear
+    r.summary(1, true)
+    verifyEq(buf.flip.readAllLines[0..3],
+      ["", "FAIL: acme::FooTest.testB", "  sys::Err: boom", ""])
   }
 }

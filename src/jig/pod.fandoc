@@ -94,18 +94,19 @@ Output [#output]
   - '[passed/total]' counts, with columns aligned across all pods
   - 'pass' / 'fail' with elapsed time for the class ('4900ms' under 5sec,
     '7.2sec' under a minute, then '1min 2sec')
-  - Failures indented under their class: 'FAIL: <method>', anything the test
-    printed (prefixed with '|'), and the stack trace with test harness frames
-    (reflection, 'TestRunner', 'verify' internals) removed
+  - A 'FAIL: <method>' line under the class for each failed test
   - A summary line after each pod when the run covers more than one pod
 
 Output from passing tests is hidden.
 
-**Quiet** ('-q') prints failures as they happen with full qualified names,
-and nothing for passing tests.
+**Quiet** ('-q') prints a 'FAIL:' line with the full qualified name as each
+test fails, and nothing for passing tests.
 
-Both modes end with a one-line summary plus one line per failure showing how
-many tests in that class failed.
+Both modes end with the details for every failure together, so you don't
+have to hunt through scrollback: anything the test printed (prefixed with
+'|') and the stack trace with test harness frames (reflection,
+'TestRunner', 'verify' internals) removed. Then a one-line summary,
+plus one line per failure showing how many tests in that class failed.
 
 **Status bar.** When stdout is a terminal, a status bar on the bottom line
 shows percent complete, tests run, pass/fail counts, total elapsed time,
