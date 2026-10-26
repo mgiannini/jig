@@ -1,61 +1,80 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="472" height="301" viewBox="0 0 472 301">
-<rect width="472" height="301" rx="8" fill="#1e2127"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="582" height="320" viewBox="0 0 582 320">
+<rect width="582" height="320" rx="8" fill="#1e2127"/>
 <circle cx="18" cy="18" r="6" fill="#ff5f56"/>
 <circle cx="38" cy="18" r="6" fill="#ffbd2e"/>
 <circle cx="58" cy="18" r="6" fill="#27c93f"/>
 <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" xml:space="preserve">
-<text x="18.0" y="54" fill="#d7dae0" font-weight="bold">acme</text>
-<text x="34.8" y="73" fill="#d7dae0">AddrTest</text>
-<text x="160.8" y="73" fill="#c678dd">[</text>
-<text x="177.6" y="73" fill="#c678dd">7/</text>
-<text x="202.8" y="73" fill="#c678dd">7]</text>
-<text x="228.0" y="73" fill="#98c379">pass</text>
-<text x="270.0" y="73" fill="#d7dae0">(4ms)</text>
-<text x="34.8" y="92" fill="#d7dae0">ScheduleTest</text>
-<text x="160.8" y="92" fill="#c678dd">[</text>
-<text x="177.6" y="92" fill="#c678dd">6/</text>
-<text x="202.8" y="92" fill="#c678dd">6]</text>
-<text x="228.0" y="92" fill="#98c379">pass</text>
-<text x="270.0" y="92" fill="#d7dae0">(41ms)</text>
-<text x="34.8" y="111" fill="#d7dae0">UserTest</text>
-<text x="160.8" y="111" fill="#c678dd">[</text>
-<text x="177.6" y="111" fill="#c678dd">5/</text>
-<text x="202.8" y="111" fill="#c678dd">5]</text>
-<text x="228.0" y="111" fill="#98c379">pass</text>
-<text x="270.0" y="111" fill="#d7dae0">(2ms)</text>
-<text x="34.8" y="130" fill="#d7dae0">SyncTest</text>
-<text x="160.8" y="130" fill="#c678dd">[</text>
-<text x="177.6" y="130" fill="#c678dd">3/</text>
-<text x="202.8" y="130" fill="#c678dd">3]</text>
-<text x="228.0" y="130" fill="#98c379">pass</text>
-<text x="270.0" y="130" fill="#d7dae0">(6sec)</text>
-<text x="34.8" y="149" fill="#d7dae0">CsvReaderTest</text>
-<text x="160.8" y="149" fill="#c678dd">[10/10]</text>
-<text x="228.0" y="149" fill="#98c379">pass</text>
-<text x="270.0" y="149" fill="#d7dae0">(3ms)</text>
-<text x="34.8" y="168" fill="#d7dae0">InvoiceTest</text>
-<text x="160.8" y="168" fill="#c678dd">[12/12]</text>
-<text x="228.0" y="168" fill="#98c379">pass</text>
-<text x="270.0" y="168" fill="#d7dae0">(1290ms)</text>
-<text x="18.0" y="206" fill="#d7dae0" font-weight="bold">acmeWeb</text>
-<text x="34.8" y="225" fill="#d7dae0">SessionTest</text>
-<text x="144.0" y="225" fill="#c678dd">[</text>
-<text x="160.8" y="225" fill="#c678dd">8/</text>
-<text x="186.0" y="225" fill="#c678dd">8]</text>
-<text x="211.2" y="225" fill="#98c379">pass</text>
-<text x="253.2" y="225" fill="#d7dae0">(414ms)</text>
-<text x="34.8" y="244" fill="#d7dae0">RenderTest</text>
-<text x="144.0" y="244" fill="#c678dd">[</text>
-<text x="160.8" y="244" fill="#c678dd">9/16]</text>
-<text x="219.6" y="244" fill="#7f848e">testFilter</text>
-<text x="312.0" y="244" fill="#7f848e">(0.1sec)</text>
-<text x="18.0" y="282" fill="#d7dae0">[</text>
-<rect x="26.4" y="271" width="100.8" height="13" rx="1" fill="#98c379"/>
-<rect x="127.2" y="271" width="67.2" height="13" rx="1" fill="#98c379" opacity="0.22"/>
-<text x="194.4" y="282" fill="#d7dae0">]</text>
-<text x="211.2" y="282" fill="#d7dae0" font-weight="bold">60/93</text>
-<text x="270.0" y="282" fill="#98c379">✓</text>
-<text x="286.8" y="282" fill="#98c379">60</text>
-<text x="320.4" y="282" fill="#7f848e">10.1sec</text>
-<text x="396.0" y="282" fill="#d7dae0">acmeWeb</text>
+<text x="18.0" y="54" fill="#d7dae0" font-weight="bold" textLength="33.6" lengthAdjust="spacing">acme</text>
+<text x="34.8" y="73" fill="#d7dae0" textLength="67.2" lengthAdjust="spacing">AddrTest</text>
+<text x="110.4" y="73" fill="#7f848e" textLength="42.0" lengthAdjust="spacing">·····</text>
+<text x="160.8" y="73" fill="#c678dd" textLength="8.4" lengthAdjust="spacing">[</text>
+<text x="177.6" y="73" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">7/</text>
+<text x="202.8" y="73" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">7]</text>
+<text x="228.0" y="73" fill="#98c379" textLength="33.6" lengthAdjust="spacing">pass</text>
+<text x="270.0" y="73" fill="#7f848e" textLength="42.0" lengthAdjust="spacing">(4ms)</text>
+<text x="34.8" y="92" fill="#d7dae0" textLength="100.8" lengthAdjust="spacing">ScheduleTest</text>
+<text x="144.0" y="92" fill="#7f848e" textLength="8.4" lengthAdjust="spacing">·</text>
+<text x="160.8" y="92" fill="#c678dd" textLength="8.4" lengthAdjust="spacing">[</text>
+<text x="177.6" y="92" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">6/</text>
+<text x="202.8" y="92" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">6]</text>
+<text x="228.0" y="92" fill="#98c379" textLength="33.6" lengthAdjust="spacing">pass</text>
+<text x="270.0" y="92" fill="#7f848e" textLength="50.4" lengthAdjust="spacing">(41ms)</text>
+<text x="34.8" y="111" fill="#d7dae0" textLength="67.2" lengthAdjust="spacing">UserTest</text>
+<text x="110.4" y="111" fill="#7f848e" textLength="42.0" lengthAdjust="spacing">·····</text>
+<text x="160.8" y="111" fill="#c678dd" textLength="8.4" lengthAdjust="spacing">[</text>
+<text x="177.6" y="111" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">5/</text>
+<text x="202.8" y="111" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">5]</text>
+<text x="228.0" y="111" fill="#98c379" textLength="33.6" lengthAdjust="spacing">pass</text>
+<text x="270.0" y="111" fill="#7f848e" textLength="42.0" lengthAdjust="spacing">(2ms)</text>
+<text x="34.8" y="130" fill="#d7dae0" textLength="67.2" lengthAdjust="spacing">SyncTest</text>
+<text x="110.4" y="130" fill="#7f848e" textLength="42.0" lengthAdjust="spacing">·····</text>
+<text x="160.8" y="130" fill="#c678dd" textLength="8.4" lengthAdjust="spacing">[</text>
+<text x="177.6" y="130" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">3/</text>
+<text x="202.8" y="130" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">3]</text>
+<text x="228.0" y="130" fill="#98c379" textLength="33.6" lengthAdjust="spacing">pass</text>
+<text x="270.0" y="130" fill="#7f848e" textLength="67.2" lengthAdjust="spacing">(6.1sec)</text>
+<text x="34.8" y="149" fill="#d7dae0" textLength="109.2" lengthAdjust="spacing">CsvReaderTest</text>
+<text x="160.8" y="149" fill="#c678dd" textLength="58.8" lengthAdjust="spacing">[10/10]</text>
+<text x="228.0" y="149" fill="#98c379" textLength="33.6" lengthAdjust="spacing">pass</text>
+<text x="270.0" y="149" fill="#7f848e" textLength="42.0" lengthAdjust="spacing">(6ms)</text>
+<text x="34.8" y="168" fill="#d7dae0" textLength="92.4" lengthAdjust="spacing">InvoiceTest</text>
+<text x="135.6" y="168" fill="#7f848e" textLength="16.8" lengthAdjust="spacing">··</text>
+<text x="160.8" y="168" fill="#c678dd" textLength="58.8" lengthAdjust="spacing">[12/12]</text>
+<text x="228.0" y="168" fill="#98c379" textLength="33.6" lengthAdjust="spacing">pass</text>
+<text x="270.0" y="168" fill="#7f848e" textLength="67.2" lengthAdjust="spacing">(1276ms)</text>
+<text x="34.8" y="187" fill="#d7dae0" textLength="8.4" lengthAdjust="spacing">[</text>
+<text x="43.2" y="187" fill="#98c379" textLength="8.4" lengthAdjust="spacing">✓</text>
+<text x="60.0" y="187" fill="#98c379" textLength="16.8" lengthAdjust="spacing">43</text>
+<text x="85.2" y="187" fill="#98c379" textLength="50.4" lengthAdjust="spacing">passed</text>
+<text x="144.0" y="187" fill="#7f848e" textLength="67.2" lengthAdjust="spacing">(7.4sec)</text>
+<text x="211.2" y="187" fill="#d7dae0" textLength="8.4" lengthAdjust="spacing">]</text>
+<text x="18.0" y="225" fill="#d7dae0" font-weight="bold" textLength="58.8" lengthAdjust="spacing">acmeWeb</text>
+<text x="34.8" y="244" fill="#d7dae0" textLength="92.4" lengthAdjust="spacing">SessionTest</text>
+<text x="135.6" y="244" fill="#7f848e" textLength="16.8" lengthAdjust="spacing">··</text>
+<text x="160.8" y="244" fill="#c678dd" textLength="8.4" lengthAdjust="spacing">[</text>
+<text x="177.6" y="244" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">8/</text>
+<text x="202.8" y="244" fill="#c678dd" textLength="16.8" lengthAdjust="spacing">8]</text>
+<text x="228.0" y="244" fill="#98c379" textLength="33.6" lengthAdjust="spacing">pass</text>
+<text x="270.0" y="244" fill="#7f848e" textLength="58.8" lengthAdjust="spacing">(407ms)</text>
+<text x="34.8" y="263" fill="#d7dae0" textLength="84.0" lengthAdjust="spacing">RenderTest</text>
+<text x="127.2" y="263" fill="#7f848e" textLength="25.2" lengthAdjust="spacing">···</text>
+<text x="160.8" y="263" fill="#c678dd" textLength="8.4" lengthAdjust="spacing">[</text>
+<text x="177.6" y="263" fill="#c678dd" textLength="42.0" lengthAdjust="spacing">9/16]</text>
+<text x="236.4" y="263" fill="#7f848e" textLength="84.0" lengthAdjust="spacing">testFilter</text>
+<text x="328.8" y="263" fill="#7f848e" textLength="67.2" lengthAdjust="spacing">(0.1sec)</text>
+<text x="18.0" y="301" fill="#d7dae0" textLength="8.4" lengthAdjust="spacing">[</text>
+<rect x="26.4" y="290" width="100.8" height="13" rx="1" fill="#98c379"/>
+<rect x="127.2" y="290" width="8.4" height="13" fill="#98c379" opacity="0.22"/>
+<rect x="127.2" y="290" width="7.4" height="13" fill="#98c379"/>
+<rect x="135.6" y="290" width="58.8" height="13" rx="1" fill="#98c379" opacity="0.22"/>
+<text x="194.4" y="301" fill="#d7dae0" textLength="8.4" lengthAdjust="spacing">]</text>
+<text x="211.2" y="301" fill="#d7dae0" font-weight="bold" textLength="25.2" lengthAdjust="spacing">64%</text>
+<text x="244.8" y="301" fill="#d7dae0" textLength="42.0" lengthAdjust="spacing">60/93</text>
+<text x="295.2" y="301" fill="#7f848e" textLength="8.4" lengthAdjust="spacing">|</text>
+<text x="312.0" y="301" fill="#98c379" textLength="8.4" lengthAdjust="spacing">✓</text>
+<text x="328.8" y="301" fill="#98c379" textLength="16.8" lengthAdjust="spacing">60</text>
+<text x="354.0" y="301" fill="#d7dae0" textLength="58.8" lengthAdjust="spacing">10.0sec</text>
+<text x="421.2" y="301" fill="#7f848e" textLength="8.4" lengthAdjust="spacing">|</text>
+<text x="438.0" y="301" fill="#d7dae0" textLength="58.8" lengthAdjust="spacing">acmeWeb</text>
+<text x="505.2" y="301" fill="#d7dae0" textLength="58.8" lengthAdjust="spacing">[17/50]</text>
 </g></svg>

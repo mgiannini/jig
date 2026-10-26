@@ -16,37 +16,58 @@ const class StatusBar
   ** Width of the progress bar in cells.
   static const Int barSize := 20
 
-  ** Render status line to fit within 'width' columns.
-  static Str render(Int total, Int passed, Int failed, Str? current,
+  ** Render status line to fit within 'width' columns:
+  **
+  **   [█▏░░░░] 6% 80/1324 | ✓ 80 4.8sec | core [79/149]
+  **
+  ** If the line is too wide the label is clipped from the left or
+  ** dropped first, then the time.
+  static Str render(Int total, Int passed, Int failed, Str? label,
                     Duration elapsed, Int width, Bool color := true)
   {
-    done   := passed + failed
-    filled := total <= 0 ? 0 : (done * barSize / total).min(barSize)
-    bar    := Str.spaces(filled).replace(" ", "█") + Str.spaces(barSize - filled).replace(" ", "░")
+    done := passed + failed
+    pct  := "${(total <= 0 ? 0 : (done * 100 / total).min(100))}%"
+    bar  := bar(done, total)
+    c    := failed > 0 ? Term.red : Term.green
+    sep  := color ? Term.dim + groupSep + Term.reset : groupSep
 
-    // build plain prefix first so we know how much room is left
-    count := "$done/$total"
-    pass  := "✓ $passed"
-    fail  := failed > 0 ? "  ✗ $failed" : ""
-    time  := fmtBarDur(elapsed)
-    plain := "[$bar] $count  $pass$fail  $time"
+    // [plain, colored] pairs so we can measure before coloring
+    head := ["[$bar] $pct $done/$total",
+             "[" + c + bar + Term.reset + "] " + Term.bold + pct + Term.reset + " $done/$total"]
+    res  := failed > 0
+      ? ["✓ $passed ✗ $failed", Term.green + "✓ $passed" + Term.reset + " " + Term.red + "✗ $failed" + Term.reset]
+      : ["✓ $passed", Term.green + "✓ $passed" + Term.reset]
+    time := " " + fmtBarDur(elapsed)
 
-    // truncate from the left so the method name stays visible
-    name  := ""
-    avail := width - 1 - plain.size - 2
-    if (current != null && avail >= 8)
-      name = current.size <= avail ? current : "…" + current[-(avail-1)..-1]
+    // drop time if even the base line doesn't fit
+    max  := width - 1
+    if (head[0].size + groupSep.size + res[0].size + time.size > max) time = ""
+    base := head[0].size + groupSep.size + res[0].size + time.size
 
-    if (!color) return name.isEmpty ? plain : "$plain  $name"
-
-    c := failed > 0 ? Term.red : Term.green
     s := StrBuf()
-    s.add("[").add(c).add(bar).add(Term.reset).add("] ")
-    s.add(Term.bold).add(count).add(Term.reset).add("  ")
-    s.add(Term.green).add(pass).add(Term.reset)
-    if (failed > 0) s.add("  ").add(Term.red).add("✗ $failed").add(Term.reset)
-    s.add("  ").add(Term.dim).add(time).add(Term.reset)
-    if (!name.isEmpty) s.add("  ").add(name)
+    s.add(color ? head[1] : head[0]).add(sep).add(color ? res[1] : res[0]).add(time)
+
+    // clip label from the left so the end stays visible, or drop it
+    // if too little room is left to be useful
+    avail := max - base - groupSep.size
+    if (label != null && avail >= 12)
+      s.add(sep).add(label.size <= avail ? label : "…" + label[-(avail-1)..-1])
+    return s.toStr
+  }
+
+  ** Separator between status bar groups.
+  private static const Str groupSep := " | "
+
+  ** Bar of 'barSize' cells with eighth-cell partial blocks.
+  static Str bar(Int done, Int total)
+  {
+    eighths := total <= 0 ? 0 : (done * barSize * 8 / total).min(barSize * 8)
+    full := eighths / 8
+    rem  := eighths % 8
+    s := StrBuf()
+    full.times { s.add("█") }
+    if (rem > 0) s.add("▏▎▍▌▋▊▉"[rem-1].toChar)
+    (barSize - full - (rem > 0 ? 1 : 0)).times { s.add("░") }
     return s.toStr
   }
 
@@ -68,14 +89,14 @@ const class StatusBar
     return ms < 60_000 ? sec : "${ms / 60_000}min $sec"
   }
 
-  ** Format duration as '4900ms' under 5sec, '6sec' under 1min,
-  ** then '2min 5sec'; seconds are rounded to nearest whole.
+  ** Format duration as '4900ms' under 5sec, '7.2sec' under 1min,
+  ** then '2min 5sec'; rounded to nearest tenth or whole second.
   static Str fmtDurMs(Duration d)
   {
     ms := d.toMillis.max(0)
     if (ms < 5_000) return "${ms}ms"
-    secs := (ms + 500) / 1000
-    if (secs < 60) return "${secs}sec"
+    tenths := (ms + 50) / 100
+    if (tenths < 600) return "${tenths / 10}.${tenths % 10}sec"
     return fmtMin(ms)
   }
 

@@ -21,23 +21,25 @@ class Main : AbstractMain
   @Opt { help = "test legacy JavaScript environment" }
   Bool js
 
-  @Opt { help = "test all pods in workDir lib/fan/" }
-  Bool work
+  ** Field names are single letters so AbstractMain gives '-w';
+  ** the '-work' alias matches '--work' after the leading dash.
+  @Opt { help = "test all pods in workDir lib/fan/"; aliases = ["-work"] }
+  Bool w
 
-  @Opt { help = "only print failures and status bar"; aliases = ["q", "-quiet"] }
-  Bool quiet
+  @Opt { help = "only print failures and status bar"; aliases = ["-quiet"] }
+  Bool q
 
   @Arg { help = "<pod>, <pod>::<Type>, or <pod>::<Type>.<method>" }
   Str[] targets := [,]
 
   override Int run()
   {
-    if (work)
+    if (w)
     {
       // without a workenv workDir is homeDir; refuse to test the whole distro
       if (Env.cur.workDir.normalize == Env.cur.homeDir.normalize)
       {
-        echo("ERR: -work requires a workenv (fan.props)")
+        echo("ERR: -w requires a workenv (fan.props)")
         return 1
       }
       targets = workPods(Env.cur.workDir)
@@ -59,7 +61,7 @@ class Main : AbstractMain
     catch (ArgErr e) { echo("ERR: $e.msg"); return 1 }
     if (tests.isEmpty) { echo("ERR: no tests found"); return 1 }
 
-    return Runner(targets, tests, quiet).run
+    return Runner(targets, tests, q).run
   }
 
   ** Return sorted names of all pods under '<dir>/lib/fan/'.

@@ -24,22 +24,20 @@ class Runner : FantListener
     this.targets = targets
     this.total   = tests.size
 
-    // expected methods per type and type name column per pod
+    // expected methods per type; name and count columns are sized
+    // across all pods so they line up for the whole run
+    pods := Str:Str[:]
     tests.each |q|
     {
       type := typeOf(q)
       typeTotals[type] = (typeTotals[type] ?: 0) + 1
-      pod  := podOf(q)
-      name := type[pod.size+2..-1]
-      podWidths[pod] = (podWidths[pod] ?: 0).max(name.size)
+      pod := podOf(q)
+      pods[pod] = pod
+      podTotals[pod] = (podTotals[pod] ?: 0) + 1
+      nameWidth = nameWidth.max(type.size - pod.size - 2)
     }
-
-    // count digits fit the largest type total in each pod
-    typeTotals.each |n, type|
-    {
-      pod := podOf(type)
-      countWidths[pod] = (countWidths[pod] ?: 0).max(n.toStr.size)
-    }
+    typeTotals.each |n| { countWidth = countWidth.max(n.toStr.size) }
+    this.multiPod = pods.size > 1
 
     this.quiet   = quiet
     this.tty     = tty ?: Term.isTty
@@ -62,7 +60,7 @@ class Runner : FantListener
     pool := startTicker
     exit := Term.exec(Term.fant.addAll(targets), |line| { parser.parseLine(line) }) |->Bool| { parser.isDone }
     parser.finish
-    if (!quiet) printType
+    if (!quiet) { printType; printAbove(podSummary) }
 
     // stop ticker before writing summary
     running.val = false
@@ -92,6 +90,7 @@ class Runner : FantListener
 
   override Void onStart(Str qname)
   {
+
     // fallback if a type ends without reaching its expected count
     type := typeOf(qname)
     if (!quiet && type != curType)
@@ -110,6 +109,7 @@ class Runner : FantListener
   {
     passed++
     typePassed++
+    podPassed++
     if (quiet) redraw
     else checkType
   }
@@ -125,6 +125,7 @@ class Runner : FantListener
     else
     {
       typeFailed++
+      podFailed++
       typeFails.addAll(failLines(qname[qname.index(".")+1..-1], output, trace, "    "))
       checkType
     }
@@ -154,15 +155,31 @@ class Runner : FantListener
     else redraw
   }
 
-  ** Print pod header if this is the first type of a new pod.
+  ** Print previous pod's summary and this pod's header if this
+  ** is the first type of a new pod.
   private Void printPod(Str pod)
   {
     if (pod == curPod) return
     lines := Str[,]
-    if (curPod != null) lines.add("")
+    if (curPod != null) lines.addAll(podSummary).add("")
     lines.add(tty ? "$Term.bold$pod$Term.reset" : pod)
-    curPod = pod
+    curPod     = pod
+    podPassed  = 0
+    podFailed  = 0
+    podStart   = now
     printAbove(lines)
+  }
+
+  ** Summary line for current pod, or empty if this run only covers
+  ** one pod since the final summary already says the same thing.
+  internal Str[] podSummary()
+  {
+    if (!multiPod || curPod == null) return Str[,]
+    res := podFailed > 0
+      ? color(Term.red, "✗ $podFailed failed, $podPassed passed")
+      : color(Term.green, "✓ $podPassed passed")
+
+    return ["  [$res " + color(Term.dim, "(${StatusBar.fmtDurMs(now - podStart)})") + "]"]
   }
 
   ** Print final line for current type followed by its failures.
@@ -174,10 +191,10 @@ class Runner : FantListener
 
     expected := typeTotals[type] ?: typePassed + typeFailed
     ok := typeFailed == 0 && typePassed >= expected
-    lines := ["  ${typeName(type)}  " +
+    lines := ["  " + typeCol(type) +
       color(Term.magenta, countStr(type, typePassed, expected)) + " " +
-      (ok ? color(Term.green, "pass") : color(Term.red, "fail")) +
-      " (${StatusBar.fmtDurMs(now - typeStart)})"]
+      (ok ? color(Term.green, "pass") : color(Term.red, "fail")) + " " +
+      color(Term.dim, "(${StatusBar.fmtDurMs(now - typeStart)})")]
     lines.addAll(typeFails)
 
     typePassed = 0
@@ -199,29 +216,33 @@ class Runner : FantListener
     timer  := " (${StatusBar.fmtDur(now - methodStart)})"
 
     // keep on one line so cursor math in 'erase' holds
-    avail := width - 1 - "  ${typeName(type)}  $count$fails  $timer".size
+    avail := width - 1 - ("  " + typeCol(type, false) + "$count$fails  $timer").size
     if (avail < 4) method = ""
     else if (method.size > avail) method = method[0..<avail-1] + "…"
 
-    s := "  ${typeName(type)}  " + color(Term.magenta, count)
+    s := "  " + typeCol(type) + color(Term.magenta, count)
     if (typeFailed > 0) s += " " + color(Term.red, "$typeFailed failed")
     if (!method.isEmpty) s += "  " + color(Term.dim, method + timer)
     return s
   }
 
-  ** Format '[ 4/ 4]' with both sides right aligned to the pod's
+  ** Format '[ 4/ 4]' with both sides right aligned to the run's
   ** count digits so slashes and totals line up.
   private Str countStr(Str type, Int passed, Int expected)
   {
-    w := countWidths[podOf(type)] ?: 0
-    return "[" + passed.toStr.padl(w) + "/" + expected.toStr.padl(w) + "]"
+    "[" + passed.toStr.padl(countWidth) + "/" + expected.toStr.padl(countWidth) + "]"
   }
 
-  ** Type name without pod, padded to align within its pod.
-  private Str typeName(Str type)
+  ** Type name without pod plus dim dot leaders out to the count
+  ** column, which is aligned across all pods.  The longest name
+  ** gets a plain two space gap.
+  private Str typeCol(Str type, Bool colored := true)
   {
-    pod := podOf(type)
-    return type[pod.size+2..-1].padr(podWidths[pod] ?: 0)
+    name := type[podOf(type).size+2..-1]
+    n := nameWidth - name.size
+    if (n <= 0) return "$name  "
+    dots := "·" * n
+    return "$name " + (colored ? color(Term.dim, dots) : dots) + " "
   }
 
   private static Str typeOf(Str qname) { qname[0..<qname.indexr(".")] }
@@ -260,13 +281,23 @@ class Runner : FantListener
       // types too so the bar doesn't jump as each type finishes
       if (!quiet && curPod != null) { buf.add("\n"); drawn++ }
 
-      // live line already shows the method in default mode, so the
-      // bar shows the pod in case its header has scrolled away
-      buf.add(StatusBar.render(total, passed, failed, quiet ? current : curPod, elapsed, width))
+      buf.add(StatusBar.render(total, passed, failed, barLabel, elapsed, width))
       liveDrawn = drawn
       out.print(buf.toStr).flush
     }
     finally lock.unlock
+  }
+
+  ** Label for the status bar: the current pod and its test progress,
+  ** which stays pinned once the pod header scrolls away.  The live
+  ** line already shows the class and method, but quiet mode has no
+  ** live line so shows the current test instead.
+  internal Str? barLabel()
+  {
+    if (quiet) return current
+    pod := curPod
+    if (pod == null) return null
+    return "$pod [${podPassed + podFailed}/${podTotals[pod]}]"
   }
 
   ** Escape sequence to clear the status bar and any live
@@ -369,9 +400,14 @@ class Runner : FantListener
   private Duration methodStart := Duration.now
   private Str[] failures := [,]
   private Str:Int typeTotals := [:]
-  private Str:Int podWidths := [:]
-  private Str:Int countWidths := [:]
+  private const Bool multiPod
+  private Int nameWidth
+  private Int countWidth
   private Str? curPod
+  private Str:Int podTotals := [:]
+  private Int podPassed
+  private Int podFailed
+  private Duration podStart := Duration.now
   private Str? curType
   private Int typePassed
   private Int typeFailed

@@ -63,14 +63,18 @@ class RunnerTest : Test
     r.onPass("beta::BarTest.testD", 1)
     verifyEq(buf.flip.readAllLines,
       ["acme",
-       "  FooTest       [1/2] fail (2500ms)",
+       "  FooTest ····· [1/2] fail (2500ms)",
        "    FAIL: testB",
        "      | echo",
        "      sys::Err: boom",
        "  LongNameTest  [1/1] pass (1min 2sec)",
+       "  [✗ 1 failed, 2 passed (1min 4sec)]",
        "",
        "beta",
-       "  BarTest  [1/1] pass (0ms)"])
+       "  BarTest ····· [1/1] pass (0ms)"])
+
+    // last pod's summary is printed by run() once fant exits
+    verifyEq(r.podSummary, ["  [✓ 1 passed (0ms)]"])
   }
 
   Void testDefaultCutShort()
@@ -105,9 +109,10 @@ class RunnerTest : Test
       if (q == "acme::SmallTest.testA") return
     }
     lines := buf.flip.readAllLines
-    verifyEq(lines[1], "  BigTest    [11/12] fail (0ms)")
+    verifyEq(lines[1], "  BigTest ·· [11/12] fail (0ms)")
     verifyEq(lines.find { it.contains("SmallTest") }, "  SmallTest  [ 1/ 1] pass (0ms)")
-    verifyEq(lines.last, "  BarTest  [1/1] pass (0ms)")
+    // columns are shared across pods
+    verifyEq(lines.last, "  BarTest ·· [ 1/ 1] pass (0ms)")
 
     // passed padded independently of total
     r3 := Runner(["acme"], ["acme::T.testA"] .addAll((1..100).map { "acme::Big.test$it" }), false, false, Buf().out)
@@ -157,6 +162,43 @@ class RunnerTest : Test
     verifyEq(buf.flip.readAllLines, ["✓ 1 test passed [1 verifies] in 0.0sec"])
   }
 
+  Void testPodSummarySinglePod()
+  {
+    // final summary already covers a single pod
+    buf := Buf()
+    r := Runner(["acme"], ["acme::FooTest.testA"], false, false, buf.out)
+    r.fixedNow = 0ms
+    r.onStart("acme::FooTest.testA")
+    r.onPass("acme::FooTest.testA", 1)
+    verifyEq(r.podSummary, Str[,])
+  }
+
+  Void testBarLabel()
+  {
+    tests := ["acme::FooTest.testA", "acme::FooTest.testB", "acme::BarTest.testC",
+              "beta::BazTest.testD"]
+    r := Runner(["acme", "beta"], tests, false, false, Buf().out)
+    r.fixedNow = 0ms
+    verifyEq(r.barLabel, null)
+
+    // pod and its test progress, across classes
+    r.onStart(tests[0])
+    verifyEq(r.barLabel, "acme [0/3]")
+    r.onPass(tests[0], 1)
+    r.onStart(tests[1])
+    r.onFail(tests[1], [,], ["sys::Err: boom"])
+    r.onStart(tests[2])
+    verifyEq(r.barLabel, "acme [2/3]")
+    r.onPass(tests[2], 1)
+    r.onStart(tests[3])
+    verifyEq(r.barLabel, "beta [0/1]")
+
+    // quiet mode shows the current test
+    q := Runner(["acme"], tests, true, false, Buf().out)
+    q.onStart(tests[1])
+    verifyEq(q.barLabel, "acme::FooTest.testB")
+  }
+
   Void testLiveLine()
   {
     tests := ["acme::FooTest.testA", "acme::FooTest.testB", "acme::FooTest.testC",
@@ -166,20 +208,20 @@ class RunnerTest : Test
     verifyEq(r.liveLine, null)
 
     r.onStart("acme::FooTest.testA")
-    verifyEq(r.liveLine, "  FooTest       [0/3]  testA (0.0sec)")
+    verifyEq(r.liveLine, "  FooTest ····· [0/3]  testA (0.0sec)")
     r.onFail("acme::FooTest.testA", [,], ["sys::Err: boom"])
     r.fixedNow = 10sec
     r.onStart("acme::FooTest.testB")
-    verifyEq(r.liveLine, "  FooTest       [0/3] 1 failed  testB (0.0sec)")
+    verifyEq(r.liveLine, "  FooTest ····· [0/3] 1 failed  testB (0.0sec)")
 
     // timer is per method and ticks while it runs
     r.fixedNow = 12300ms
-    verifyEq(r.liveLine, "  FooTest       [0/3] 1 failed  testB (2.3sec)")
+    verifyEq(r.liveLine, "  FooTest ····· [0/3] 1 failed  testB (2.3sec)")
     r.fixedNow = 85sec
-    verifyEq(r.liveLine, "  FooTest       [0/3] 1 failed  testB (1min 15sec)")
+    verifyEq(r.liveLine, "  FooTest ····· [0/3] 1 failed  testB (1min 15sec)")
     r.onPass("acme::FooTest.testB", 1)
     r.onStart("acme::FooTest.testC")
-    verifyEq(r.liveLine, "  FooTest       [1/3] 1 failed  testC (0.0sec)")
+    verifyEq(r.liveLine, "  FooTest ····· [1/3] 1 failed  testC (0.0sec)")
 
     // type done
     r.onPass("acme::FooTest.testC", 1)
