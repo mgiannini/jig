@@ -1,3 +1,5 @@
+<img src="assets/icon.svg" alt="Jig icon: Fanny the Fantom ghost clamped in a woodworking jig" width="160">
+
 # Jig
 
 A better Fantom test runner.

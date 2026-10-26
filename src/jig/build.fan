@@ -27,6 +27,7 @@ class Build : BuildPod
       `fan/`,
       `test/`,
     ]
+    resDirs = [`doc/`]
     docApi = true
     docSrc = true
   }
