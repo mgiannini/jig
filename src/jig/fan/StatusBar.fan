@@ -58,11 +58,14 @@ const class StatusBar
     return fmtMin(ms)
   }
 
-  ** Format duration as '1500ms', or '2min 5sec' once past 59sec.
+  ** Format duration as '4900ms' under 5sec, '6sec' under 1min,
+  ** then '2min 5sec'; seconds are rounded to nearest whole.
   static Str fmtDurMs(Duration d)
   {
     ms := d.toMillis.max(0)
-    if (ms < 60_000) return "${ms}ms"
+    if (ms < 5_000) return "${ms}ms"
+    secs := (ms + 500) / 1000
+    if (secs < 60) return "${secs}sec"
     return fmtMin(ms)
   }
 
