@@ -8,7 +8,7 @@ class Build : BuildPod
   {
     podName = "jig"
     summary = "A better Fantom test runner"
-    version = Version("0.1")
+    version = Version("0.2")
     meta = [
       "org.name":     "Novant",
       "org.uri":      "https://novant.io/",
