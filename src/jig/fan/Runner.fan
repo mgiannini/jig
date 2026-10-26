@@ -34,6 +34,13 @@ class Runner : FantListener
       podWidths[pod] = (podWidths[pod] ?: 0).max(name.size)
     }
 
+    // count digits fit the largest type total in each pod
+    typeTotals.each |n, type|
+    {
+      pod := podOf(type)
+      countWidths[pod] = (countWidths[pod] ?: 0).max(n.toStr.size)
+    }
+
     this.quiet   = quiet
     this.tty     = tty ?: Term.isTty
     this.width   = this.tty ? Term.width : 80
@@ -168,7 +175,7 @@ class Runner : FantListener
     expected := typeTotals[type] ?: typePassed + typeFailed
     ok := typeFailed == 0 && typePassed >= expected
     lines := ["  ${typeName(type)}  " +
-      color(Term.magenta, "[$typePassed/$expected]") + " " +
+      color(Term.magenta, countStr(type, typePassed, expected)) + " " +
       (ok ? color(Term.green, "pass") : color(Term.red, "fail")) +
       " (${StatusBar.fmtDurMs(now - typeStart)})"]
     lines.addAll(typeFails)
@@ -186,7 +193,7 @@ class Runner : FantListener
     type := curType
     if (quiet || type == null) return null
 
-    count  := "[$typePassed/${typeTotals[type] ?: 0}]"
+    count  := countStr(type, typePassed, typeTotals[type] ?: 0)
     fails  := typeFailed > 0 ? " $typeFailed failed" : ""
     method := current == null ? "" : current[current.indexr(".")+1..-1]
     timer  := " (${StatusBar.fmtDur(now - methodStart)})"
@@ -200,6 +207,14 @@ class Runner : FantListener
     if (typeFailed > 0) s += " " + color(Term.red, "$typeFailed failed")
     if (!method.isEmpty) s += "  " + color(Term.dim, method + timer)
     return s
+  }
+
+  ** Format '[ 4/ 4]' with both sides right aligned to the pod's
+  ** count digits so slashes and totals line up.
+  private Str countStr(Str type, Int passed, Int expected)
+  {
+    w := countWidths[podOf(type)] ?: 0
+    return "[" + passed.toStr.padl(w) + "/" + expected.toStr.padl(w) + "]"
   }
 
   ** Type name without pod, padded to align within its pod.
@@ -285,7 +300,7 @@ class Runner : FantListener
   }
 
   ** Print final summary and return exit code.
-  private Int summary(Int exit, Bool complete)
+  internal Int summary(Int exit, Bool complete)
   {
     ran := passed + failed
     dur := StatusBar.fmtDur(elapsed)
@@ -293,28 +308,27 @@ class Runner : FantListener
 
     if (curPod != null) out.printLine
 
-    if (!failures.isEmpty)
-    {
-      out.printLine("Failed:")
-      failures.each |q| { out.printLine("  $q") }
-      out.printLine
-    }
-
+    Int code := 1
     if (!complete)
-    {
       out.printLine(color(Term.red, "✗ fant exited early (exit $exit): ran $ran of ${tests(total)} in $dur"))
-      return 1
-    }
-
-    if (failed > 0)
-    {
+    else if (failed > 0)
       out.printLine(color(Term.red, "✗ $failed failed, $passed passed of ${tests(total)}$vs in $dur"))
-      return 1
+    else
+    {
+      msg := passed == 1 ? "1 test passed" : "All $passed tests passed"
+      out.printLine(color(Term.green, "✓ $msg$vs in $dur"))
+      code = 0
     }
 
-    msg := passed == 1 ? "1 test passed" : "All $passed tests passed"
-    out.printLine(color(Term.green, "✓ $msg$vs in $dur"))
-    return 0
+    // one line per failure with how many of its type failed
+    w := failures.reduce(0) |Int r, q| { r.max(q.size) }
+    failures.each |q|
+    {
+      type := typeOf(q)
+      n := failures.findAll { typeOf(it) == type }.size
+      out.printLine(color(Term.red, "✗ ${q.padr(w)} [$n/${typeTotals[type] ?: n} failed]"))
+    }
+    return code
   }
 
   private static Str tests(Int n) { n == 1 ? "1 test" : "$n tests" }
@@ -349,6 +363,7 @@ class Runner : FantListener
   private Str[] failures := [,]
   private Str:Int typeTotals := [:]
   private Str:Int podWidths := [:]
+  private Str:Int countWidths := [:]
   private Str? curPod
   private Str? curType
   private Int typePassed

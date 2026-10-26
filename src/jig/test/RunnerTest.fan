@@ -86,6 +86,77 @@ class RunnerTest : Test
     verifyEq(buf.seek(0).readAllLines, ["acme", "  FooTest  [1/2] fail (0ms)"])
   }
 
+  Void testCountAlign()
+  {
+    // widest count in acme is 12/12; beta has its own column
+    tests := Str[,]
+    12.times |i| { tests.add("acme::BigTest.test$i") }
+    tests.add("acme::SmallTest.testA")
+    tests.add("beta::BarTest.testB")
+
+    buf := Buf()
+    r := Runner(["acme", "beta"], tests, false, false, buf.out)
+    r.fixedNow = 0ms
+    tests.each |q|
+    {
+      r.onStart(q)
+      if (q == "acme::BigTest.test3") r.onFail(q, [,], ["sys::Err: boom"])
+      else r.onPass(q, 1)
+      if (q == "acme::SmallTest.testA") return
+    }
+    lines := buf.flip.readAllLines
+    verifyEq(lines[1], "  BigTest    [11/12] fail (0ms)")
+    verifyEq(lines.find { it.contains("SmallTest") }, "  SmallTest  [ 1/ 1] pass (0ms)")
+    verifyEq(lines.last, "  BarTest  [1/1] pass (0ms)")
+
+    // passed padded independently of total
+    r3 := Runner(["acme"], ["acme::T.testA"] .addAll((1..100).map { "acme::Big.test$it" }), false, false, Buf().out)
+    r3.fixedNow = 0ms
+    r3.onStart("acme::Big.test1")
+    r3.onPass("acme::Big.test1", 1)
+    r3.onStart("acme::Big.test2")
+    verify(r3.liveLine.contains("[  1/100]"))
+
+    // live line uses the same padding
+    r2 := Runner(["acme"], tests, false, false, Buf().out)
+    r2.fixedNow = 0ms
+    r2.onStart("acme::SmallTest.testA")
+    verifyEq(r2.liveLine, "  SmallTest  [ 0/ 1]  testA (0.0sec)")
+  }
+
+  Void testSummary()
+  {
+    tests := ["acme::FooTest.testA", "acme::FooTest.testB", "acme::FooTest.testC",
+              "acme::LongNameTest.testD"]
+    buf := Buf()
+    r := Runner(["acme"], tests, true, false, buf.out)
+    r.fixedNow = 0ms
+    r.onStart(tests[0]); r.onFail(tests[0], [,], ["sys::Err: a"])
+    r.onStart(tests[1]); r.onPass(tests[1], 1)
+    r.onStart(tests[2]); r.onFail(tests[2], [,], ["sys::Err: c"])
+    r.onStart(tests[3]); r.onFail(tests[3], [,], ["sys::Err: d"])
+    r.onSummary(2, 4, 1234)
+    buf.clear
+
+    verifyEq(r.summary(3, true), 1)
+    verifyEq(buf.flip.readAllLines,
+      ["✗ 3 failed, 1 passed of 4 tests [1,234 verifies] in 0.0sec",
+       "✗ acme::FooTest.testA      [2/3 failed]",
+       "✗ acme::FooTest.testC      [2/3 failed]",
+       "✗ acme::LongNameTest.testD [1/1 failed]"])
+  }
+
+  Void testSummaryPass()
+  {
+    buf := Buf()
+    r := Runner(["acme"], ["acme::FooTest.testA"], true, false, buf.out)
+    r.fixedNow = 0ms
+    r.onStart("acme::FooTest.testA"); r.onPass("acme::FooTest.testA", 1)
+    r.onSummary(1, 1, 1)
+    verifyEq(r.summary(0, true), 0)
+    verifyEq(buf.flip.readAllLines, ["✓ 1 test passed [1 verifies] in 0.0sec"])
+  }
+
   Void testLiveLine()
   {
     tests := ["acme::FooTest.testA", "acme::FooTest.testB", "acme::FooTest.testC",
