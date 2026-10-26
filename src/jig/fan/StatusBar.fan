@@ -28,7 +28,7 @@ const class StatusBar
     count := "$done/$total"
     pass  := "✓ $passed"
     fail  := failed > 0 ? "  ✗ $failed" : ""
-    time  := fmtDur(elapsed)
+    time  := fmtBarDur(elapsed)
     plain := "[$bar] $count  $pass$fail  $time"
 
     // truncate from the left so the method name stays visible
@@ -56,6 +56,16 @@ const class StatusBar
     ms := d.toMillis.max(0)
     if (ms < 60_000) return "${ms / 1000}.${ms % 1000 / 100}sec"
     return fmtMin(ms)
+  }
+
+  ** Format status bar clock as '12.3sec', then '3min 10.4sec';
+  ** tenths are truncated so the clock never jumps ahead.
+  static Str fmtBarDur(Duration d)
+  {
+    ms  := d.toMillis.max(0)
+    rem := ms % 60_000
+    sec := "${rem / 1000}.${rem % 1000 / 100}sec"
+    return ms < 60_000 ? sec : "${ms / 60_000}min $sec"
   }
 
   ** Format duration as '4900ms' under 5sec, '6sec' under 1min,

@@ -260,8 +260,9 @@ class Runner : FantListener
       // types too so the bar doesn't jump as each type finishes
       if (!quiet && curPod != null) { buf.add("\n"); drawn++ }
 
-      // live line already shows the method in default mode
-      buf.add(StatusBar.render(total, passed, failed, quiet ? current : null, elapsed, width))
+      // live line already shows the method in default mode, so the
+      // bar shows the pod in case its header has scrolled away
+      buf.add(StatusBar.render(total, passed, failed, quiet ? current : curPod, elapsed, width))
       liveDrawn = drawn
       out.print(buf.toStr).flush
     }

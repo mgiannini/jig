@@ -19,7 +19,7 @@ class StatusBarTest : Test
     verifyEq(render(10, 5, 0, "acme::FooTest.testA", 1234ms, 80),
       "[██████████░░░░░░░░░░] 5/10  ✓ 5  1.2sec  acme::FooTest.testA")
     verifyEq(render(4, 3, 1, null, 65sec, 80),
-      "[████████████████████] 4/4  ✓ 3  ✗ 1  1min 5sec")
+      "[████████████████████] 4/4  ✓ 3  ✗ 1  1min 5.0sec")
 
     // never overfill
     verifyEq(render(1, 2, 0, null, 0ms, 80),
@@ -59,6 +59,16 @@ class StatusBarTest : Test
     verifyEq(StatusBar.fmtDur(2min + 5sec + 500ms), "2min 6sec")
     verifyEq(StatusBar.fmtDur(2min + 59sec + 600ms), "3min 0sec")
     verifyEq(StatusBar.fmtDur(75min), "75min 0sec")
+  }
+
+  Void testFmtBarDur()
+  {
+    verifyEq(StatusBar.fmtBarDur(0ms), "0.0sec")
+    verifyEq(StatusBar.fmtBarDur(12345ms), "12.3sec")
+    verifyEq(StatusBar.fmtBarDur(59999ms), "59.9sec")
+    verifyEq(StatusBar.fmtBarDur(60sec), "1min 0.0sec")
+    verifyEq(StatusBar.fmtBarDur(190400ms), "3min 10.4sec")
+    verifyEq(StatusBar.fmtBarDur(75min + 999ms), "75min 0.9sec")
   }
 
   Void testFmtDurMs()
