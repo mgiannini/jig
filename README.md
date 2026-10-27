@@ -48,7 +48,7 @@ prints the `fan.home` path), and make it executable with `chmod +x`:
 fanlaunch Fan jig "$@"
 ```
 
-Now `jig acme` works the same as `fan jig acme`. Like `fant` and `fanr`, it
+Now `jig test acme` works the same as `fan jig test acme`. Like `fant` and `fanr`, it
 runs with the Fantom install it lives in, not whichever `fan` is first on
 your `PATH`. Don't symlink it elsewhere, since it finds `fanlaunch` next to
 itself.
@@ -56,34 +56,68 @@ itself.
 ## Usage
 
 ```
-jig [options] <targets>*
+jig test <targets>* [options]
+jig build [<pod> | <file.fan>]* [options]
 ```
 
-Targets use the same syntax as `fant`:
+Options may come before or after targets. Exit code is `0` on success, `1`
+otherwise.
+
+### `jig test`
+
+Test targets use the same syntax as `fant`:
 
 ```sh
-fan jig acme                      # all tests in pod
-fan jig acme::FooTest             # all tests in a type
-fan jig acme::FooTest.testBar     # a single test method
-fan jig -w                        # all pods in workDir lib/fan/
+jig test acme                     # all tests in pod
+jig test acme::FooTest            # all tests in a type
+jig test acme::FooTest.testBar    # a single test method
+jig test                          # all pods in workDir lib/fan/
 ```
-
-Options:
 
 | Option                   | Description                                         |
 |--------------------------|-----------------------------------------------------|
-| `-w`, `--work`           | Test all pods in your workenv's `lib/fan/`          |
 | `-q`, `--quiet`          | Only print failures, status bar, and summary        |
 | `-es`                    | Test new ECMA JavaScript environment (passthrough)  |
 | `-js`                    | Test legacy JavaScript environment (passthrough)    |
 
-Exit code is `0` if all tests pass, `1` otherwise.
-
-### `-w` vs `fant -all`
+#### `jig test` vs `fant -all`
 
 `fant -all` runs every pod the env can resolve, including Fantom core and
-any `fan.props` path dependencies. `jig -w` only runs pods built into your
-workenv's own `lib/fan/`, and refuses to run outside a workenv.
+any `fan.props` path dependencies. `jig test` with no targets only runs
+pods built into your workenv's own `lib/fan/`, and refuses to run outside
+a workenv.
+
+### `jig build`
+
+Compile with the same output and status bar as tests:
+
+```sh
+jig build                         # ./build.fan, else <workDir>/src/build.fan
+jig build acme                    # pod acme under the root build script
+jig build src/acme/build.fan      # a build script by path
+jig build -c                      # clean only
+jig build -f                      # clean, compile, then test
+jig build -t dist                 # run another build script target
+```
+
+A `BuildGroup` builds all of its children, including nested groups.
+`jig build` compiles by default; `-c`, `-f`, and `-t` each pick what runs
+instead, so use only one.
+
+| Option                   | Description                                         |
+|--------------------------|-----------------------------------------------------|
+| `-c`, `--clean`          | Clean only, without compiling                       |
+| `-f`, `--full`           | Clean and compile, then test every built pod that has tests; tests are skipped if any pod fails to compile |
+| `-t`, `--target <name>`  | Run this build script target instead of compile     |
+| `-q`, `--quiet`          | Only print failures, status bar, and summary        |
+
+Build output shows one line per pod with its compile time; the running pod
+shows its current build step in dim text. Compiler warnings are printed dim
+under their pod and counted in the summary, and errors are printed above
+the summary. Indented output from custom build steps is hidden. Rows come
+from top level `<target> [<pod>]` lines, so a custom target that doesn't
+log one shows only in the status bar, and `-t test` mixes `fant` output in
+with the build; use `jig test` for that.
 
 ## Output
 
@@ -141,7 +175,7 @@ class Build : BuildPod
   override Void test()
   {
     fan := devHomeDir + (Env.cur.os == "win32" ? `bin/fan.bat` : `bin/fan`)
-    Exec(this, [fan.osPath, "jig", podName]).run
+    Exec(this, [fan.osPath, "jig", "test", podName]).run
   }
 }
 ```
@@ -160,7 +194,7 @@ class Build : BuildGroup
     runOnChildren("clean")
     runOnChildren("compile")
     fan := devHomeDir + (Env.cur.os == "win32" ? `bin/fan.bat` : `bin/fan`)
-    Exec(this, [fan.osPath, "jig"].addAll(podNames(this))).run
+    Exec(this, [fan.osPath, "jig", "test"].addAll(podNames(this))).run
   }
 
   ** Pod names of all BuildPod scripts in this group (recursive)

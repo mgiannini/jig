@@ -13,48 +13,84 @@ using concurrent
 ** Builder
 *************************************************************************
 
-** Builder spawns 'fan <build.fan>', parses its output, and renders
-** one line per pod with the same live status bar as Runner.  The
-** running pod stays pinned above the bar with its current build
+** Builder spawns 'fan <build.fan> compile', parses its output, and
+** renders one line per pod with the same live status bar as Runner.
+** The running pod stays pinned above the bar with its current build
 ** step to the right in dim text.
 **
 ** Build output is line based: a top level '<target> [<pod>]' line
 ** starts a pod, indented lines are progress steps, and any other
 ** top level line is an error or warning for the current pod, until
-** 'BUILD SUCCESS' or 'BUILD FAILED'.
-**
-** Prototype; hidden as 'jig _build [<pod> | <file.fan>]'.
+** 'BUILD SUCCESS' or 'BUILD FAILED'.  Each row is tagged with its
+** target; with several targets a group runs each target across all
+** pods in turn, so each pod gets one row per target.
 class Builder
 {
-  ** Entry point for 'jig _build'; with no args build the root
-  ** script, else the pod named 'args[0]' under the root script,
-  ** or the build script at path 'args[0]'.
-  static Int main(Str[] args, Bool quiet)
+  ** Entry point for 'jig build'; each arg is a pod under the root
+  ** script or a build script path; with no args build the root
+  ** script.  Runs 'compile' unless one of these picks the target:
+  ** 'clean' only cleans; 'full' cleans, compiles, and tests the
+  ** built pods once all compile; 'target' runs that build target.
+  static Int main(Str[] args, Bool quiet, Bool clean, Bool full, Str? target := null)
   {
-    if (args.size > 1) { echo("ERR: usage: jig _build [<pod> | <file.fan>]"); return 1 }
-
-    BuildScript? script
+    scripts := BuildScript[,]
     try
     {
-      arg := args.first
-      if (arg != null && arg.endsWith(".fan")) script = load(File.os(arg).normalize)
-      else
+      BuildScript? root
+      args.each |arg|
       {
-        script = load(findRoot)
-        if (arg != null) script = findPod(script, arg) ?: throw ArgErr("Unknown pod: $arg")
+        if (arg.endsWith(".fan")) { scripts.add(load(File.os(arg).normalize)); return }
+        if (root == null) root = load(findRoot)
+        scripts.add(findPod(root, arg) ?: throw ArgErr("Unknown pod: $arg"))
       }
+      if (scripts.isEmpty) scripts.add(load(findRoot))
+
+      // check target up front so a typo fails before anything runs
+      if (target != null)
+        scripts.each |s|
+        {
+          if (s.target(target, false) == null)
+            throw ArgErr("Unknown target '$target' for ${s.scriptFile.osPath}; " +
+              "targets: " + s.targets.map |m| { m.name }.join(", "))
+        }
     }
     catch (ArgErr e) { echo("ERR: $e.msg"); return 1 }
 
     // rewriting the pod file jig is running from breaks class loading
-    pods := JigBuild.podNames(script)
+    pods := scripts.map |s| { JigBuild.podNames(s) }.flatten
     self := Builder#.pod.name
     if (pods.contains(self) && Env.cur.findPodFile(self)?.normalize == (Env.cur.workDir + `lib/fan/${self}.pod`).normalize)
     {
       echo("ERR: cannot rebuild running ${self}.pod; use 'fan build.fan' or an installed jig")
       return 1
     }
-    return Builder(script.scriptFile, pods, quiet).run
+
+    targets := ["compile"]
+    if (full) targets = ["clean", "compile"]
+    else if (clean) targets = ["clean"]
+    else if (target != null) targets = [target]
+    code := Builder(scripts.map |s->File| { s.scriptFile }, pods, targets, quiet).run
+    if (code != 0 || !full) return code
+    return test(pods, quiet)
+  }
+
+  ** Run tests for each of 'pods' that has any, after a full build.
+  private static Int test(Str[] pods, Bool quiet)
+  {
+    tests := Str[,]
+    targets := Str[,]
+    pods.each |name|
+    {
+      pod := Pod.find(name, false)
+      if (pod == null) return
+      t := Resolver.podTests(pod)
+      if (t.isEmpty) return
+      targets.add(name)
+      tests.addAll(t)
+    }
+    if (tests.isEmpty) { echo("No tests found"); return 0 }
+    echo
+    return Runner(targets, tests, quiet).run
   }
 
   ** Root build script: './build.fan', else '<workDir>/src/build.fan'.
@@ -87,13 +123,18 @@ class Builder
     return null
   }
 
-  ** Create builder for 'script' which is expected to build 'pods'.
-  new make(File script, Str[] pods, Bool quiet := false, Bool? tty := null, OutStream out := Env.cur.out, File? cwd := null)
+  ** Create builder to run 'targets' on each of 'scripts', which
+  ** together are expected to build 'pods'.
+  new make(File[] scripts, Str[] pods, Str[] targets := ["compile"], Bool quiet := false,
+           Bool? tty := null, OutStream out := Env.cur.out, File? cwd := null)
   {
-    this.cwd    = cwd ?: File.os(".").normalize
-    this.script = script
-    this.total  = pods.size
+    this.cwd     = cwd ?: File.os(".").normalize
+    this.scripts = scripts
+    this.targets = targets
+    this.podCount = pods.size
+    this.total    = pods.size * targets.size
     pods.each |p| { nameWidth = nameWidth.max(p.size) }
+    targets.each |t| { targetWidth = targetWidth.max(t.size) }
     this.quiet  = quiet
     this.tty    = tty ?: Term.isTty
     this.width  = this.tty ? Term.width : 80
@@ -103,10 +144,17 @@ class Builder
   ** Run build and return exit code.
   Int run()
   {
-    if (!quiet) printAbove([color(Term.bold, title)])
     pool := startTicker
-    exit := Term.exec(Term.fan.add(script.osPath), |line| { parseLine(line) }) |->Bool| { done.val }
-    if (!done.val && curPod != null) endPod(exit == 0)
+    exit := 0
+    scripts.eachWhile |script, i|
+    {
+      // blank line and script header, like pods in a test run
+      if (!quiet) printAbove((i > 0 ? [""] : Str[,]).add(color(Term.bold, relPath(script))))
+      done.val = false
+      exit = Term.exec(Term.fan.add(script.osPath).addAll(targets), |line| { parseLine(line) }) |->Bool| { done.val }
+      if (!done.val) endPod(exit == 0)
+      return exit != 0 || failedPod != null ? true : null
+    }
 
     // stop ticker before writing summary
     running.val = false
@@ -114,9 +162,6 @@ class Builder
     if (tty) out.print(erase).flush
     return summary(exit)
   }
-
-  ** Header line: script path relative to cwd when under it.
-  private Str title() { relPath(script) }
 
   ** Redraw every 100ms so elapsed time moves during long steps.
   private ActorPool? startTicker()
@@ -145,13 +190,14 @@ class Builder
     if (line.startsWith("BUILD SUCCESS")) { endPod(true);  done.val = true; return }
     if (line.startsWith("BUILD FAILED"))  { endPod(false); done.val = true; return }
 
-    // '<target> [<pod>]' starts a pod, or another target of same pod
+    // '<target> [<pod>]' starts a row for that pod and target
     m := headerRegex.matcher(line)
     if (m.matches)
     {
       pod := m.group(2)
-      if (pod != curPod) { endPod(true); startPod(pod) }
-      step = line
+      target := m.group(1)
+      if (pod != curPod || target != curTarget) { endPod(true); startPod(pod, target) }
+      step = null
       redraw
       return
     }
@@ -180,10 +226,11 @@ class Builder
     catch (Err e) {}
   }
 
-  private Void startPod(Str pod)
+  private Void startPod(Str pod, Str target)
   {
-    curPod   = pod
-    podStart = now
+    curPod    = pod
+    curTarget = target
+    podStart  = now
     step     = null
   }
 
@@ -200,15 +247,17 @@ class Builder
       return
     }
 
-    curPod = null
-    step   = null
-    if (ok) built++
+    target := curTarget ?: ""
+    curPod    = null
+    curTarget = null
+    step      = null
+    if (ok) { built++; if (target == targets.last) podsDone++ }
     else { failed++; failedPod = pod }
 
     lines := Str[,]
     if (!quiet)
     {
-      lines.add("  " + nameCol(pod) +
+      lines.add("  " + nameCol(pod) + targetCol(target) +
         (ok ? color(Term.green, "ok") : color(Term.red, "fail")) + " " +
         color(Term.dim, "(${StatusBar.fmtDurMs(now - podStart)})"))
 
@@ -217,7 +266,7 @@ class Builder
       // right above the final line
       if (ok) msgs.each |s| { if (!s.startsWith(" ")) lines.add(color(Term.dim, "    $s")) }
     }
-    if (!ok) details.add([color(Term.red, "FAIL: $pod")].addAll(msgs))
+    if (!ok) details.add([color(Term.red, "FAIL: $pod [$target]")].addAll(msgs))
     msgs.clear
     printAbove(lines)
   }
@@ -232,18 +281,28 @@ class Builder
   ** in dim to the right, or null if none.
   internal Str? liveLine()
   {
+    if (quiet) return null
     pod := curPod
-    if (quiet || pod == null) return null
+    if (pod == null && step == null) return null
 
     s := step ?: ""
     timer := " (${StatusBar.fmtDur(now - podStart)})"
 
     // keep on one line so cursor math in 'erase' holds
-    avail := width - 1 - ("  " + nameCol(pod, false) + timer).size
+    col   := pod == null ? "" : nameCol(pod, false) + targetCol(curTarget ?: "", false)
+    avail := width - 1 - ("  " + col + timer).size
     if (avail < 4) s = ""
     else if (s.size > avail) s = s[0..<avail-1] + "…"
 
-    return "  " + nameCol(pod) + color(Term.dim, s + timer)
+    head := pod == null ? "" : nameCol(pod) + targetCol(curTarget ?: "")
+    return "  " + head + color(Term.dim, s + timer)
+  }
+
+  ** Target in brackets padded so status words line up.
+  private Str targetCol(Str target, Bool colored := true)
+  {
+    s := "[$target]".padr(targetWidth + 2) + " "
+    return colored ? color(Term.magenta, s) : s
   }
 
   ** Pod name plus dim dot leaders out to the status column.
@@ -316,14 +375,18 @@ class Builder
     to := outDirs.isEmpty ? "" : " to " + outDirs.map |d| { relPath(d) }.join(", ")
     ws := warns == 0 ? "" : " " + color(Term.yellow, "[" + (warns == 1 ? "1 warning" : "$warns warnings") + "]")
 
+    // name what ran; counts are pods through the last target
+    verb := "ran ${targets.last} on"
+    if (targets == ["clean"]) verb = "cleaned"
+    else if (targets.last == "compile") verb = targets.contains("clean") ? "cleaned and built" : "built"
     if (failedPod == null && exit == 0)
     {
-      out.printLine(color(Term.green, "✓ Built ${pods(built)}$to") + ws + color(Term.green, " in $dur"))
+      out.printLine(color(Term.green, "✓ ${verb.capitalize} ${pods(podsDone)}$to") + ws + color(Term.green, " in $dur"))
       return 0
     }
 
     what := failedPod == null || failedPod.isEmpty ? "Build failed (exit $exit)" : "$failedPod failed"
-    out.printLine(color(Term.red, "✗ $what; built $built of ${pods(total)}$to") + ws + color(Term.red, " in $dur"))
+    out.printLine(color(Term.red, "✗ $what; $verb $podsDone of ${pods(podCount)}$to") + ws + color(Term.red, " in $dur"))
     return 1
   }
 
@@ -352,9 +415,14 @@ class Builder
 //////////////////////////////////////////////////////////////////////////
 
   private OutStream out
-  private const File script
+  private const File[] scripts
+  private const Str[] targets
   private const Bool quiet
   private const Int total
+  private const Int podCount
+  private Int targetWidth
+  private Int podsDone
+  private Str? curTarget
   private const Bool tty
   private const Int width
   private const Duration start := Duration.now
