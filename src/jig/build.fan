@@ -7,7 +7,7 @@ class Build : BuildPod
   new make()
   {
     podName = "jig"
-    summary = "A better Fantom test runner"
+    summary = "A better Fantom build and test tool"
     version = Version("0.2")
     meta = [
       "org.name":     "Novant",
@@ -16,7 +16,7 @@ class Build : BuildPod
       "vcs.name":     "Git",
       "vcs.uri":      "https://github.com/novant-io/jig",
       "repo.public":  "true",
-      "repo.tags":    "test",
+      "repo.tags":    "test,build",
     ]
     depends = [
       "sys 1.0",

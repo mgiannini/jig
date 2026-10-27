@@ -15,7 +15,7 @@ class BuilderTest : Test
   Void testSuccess()
   {
     buf := Buf()
-    b := Builder([`/x/src/build.fan`.toFile], ["acme", "betaWeb"], ["compile"], false, false, buf.out, `/x/`.toFile)
+    b := Builder([`/x/src/build.fan`.toFile], ["acme", "betaWeb"], ["compile"], false, false, buf.out, File(`file:/x/`))
     b.fixedNow = 0ms
     parse(b,
       "compile [acme]
@@ -32,8 +32,8 @@ class BuilderTest : Test
     verifyEq(b.summary(0), 0)
     lines := buf.flip.readAllLines
     verifyEq(lines[0..3],
-      ["  acme ··· [compile] ok (0ms)",
-       "  betaWeb  [compile] ok (1200ms)",
+      ["  acme ······ [compile] ok (0ms)",
+       "  betaWeb ··· [compile] ok (1200ms)",
        "    /x/src/betaWeb/fan/Foo.fan(3,1): WARN Unused import",
        ""])
     verify(lines[4].startsWith("✓ Built 2 pods to lib/fan/ [1 warning] in "))
@@ -57,8 +57,8 @@ class BuilderTest : Test
     verifyEq(b.summary(255), 1)
     lines := buf.flip.readAllLines
     verifyEq(lines[0..-2],
-      ["  acme · [compile] ok (0ms)",
-       "  beta · [compile] fail (0ms)",
+      ["  acme ···· [compile] ok (0ms)",
+       "  beta ···· [compile] fail (0ms)",
        "",
        "FAIL: beta [compile]",
        "/x/src/beta/fan/Foo.fan(1,25): Unknown type 'Bar'",
@@ -76,8 +76,10 @@ class BuilderTest : Test
 
     b = Builder([`/x/build.fan`.toFile], ["acme"], ["compile"], false, false, buf.out)
     b.fixedNow = 0ms
+    parse(b, "compile [acme]")
+    verifyEq(b.liveLine, "  acme ··· [compile] (0.0sec)")
     parse(b, "compile [acme]\n  Compile [acme]\n    FindSourceFiles [3 files]")
-    verifyEq(b.liveLine, "  acme  [compile] FindSourceFiles [3 files] (0.0sec)")
+    verifyEq(b.liveLine, "  acme ··· [compile] FindSourceFiles [3 files] (0.0sec)")
   }
 
   Void testClean()
@@ -90,7 +92,7 @@ class BuilderTest : Test
     parse(b,
       "clean [acme]
          Delete [file:/x/lib/fan/acme.pod]")
-    verifyEq(b.liveLine, "  acme  [clean]   Delete [file:/x/lib/fan/acme.pod] (0.0sec)")
+    verifyEq(b.liveLine, "  acme ··· [clean]   Delete [file:/x/lib/fan/acme.pod] (0.0sec)")
     parse(b,
       "clean [beta]
        compile [acme]
@@ -101,10 +103,10 @@ class BuilderTest : Test
     verifyEq(b.summary(0), 0)
     lines := buf.flip.readAllLines
     verifyEq(lines[0..3],
-      ["  acme  [clean]   ok (0ms)",
-       "  beta  [clean]   ok (0ms)",
-       "  acme  [compile] ok (0ms)",
-       "  beta  [compile] ok (0ms)"])
+      ["  acme ··· [clean]   ok (0ms)",
+       "  beta ··· [clean]   ok (0ms)",
+       "  acme ··· [compile] ok (0ms)",
+       "  beta ··· [compile] ok (0ms)"])
     verify(lines[-1].startsWith("✓ Cleaned and built 2 pods in "))
   }
 
@@ -120,7 +122,7 @@ class BuilderTest : Test
        BUILD SUCCESS [3ms]!")
     verifyEq(b.summary(0), 0)
     lines := buf.flip.readAllLines
-    verifyEq(lines[0], "  acme  [clean] ok (0ms)")
+    verifyEq(lines[0], "  acme ··· [clean] ok (0ms)")
     verify(lines[-1].startsWith("✓ Cleaned 1 pod in "))
 
     // other targets are named in the summary

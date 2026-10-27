@@ -89,7 +89,6 @@ class Builder
       tests.addAll(t)
     }
     if (tests.isEmpty) { echo("No tests found"); return 0 }
-    echo
     return Runner(targets, tests, quiet).run
   }
 
@@ -144,12 +143,12 @@ class Builder
   ** Run build and return exit code.
   Int run()
   {
+    // blank line spaces results off from the command line
+    out.printLine
     pool := startTicker
     exit := 0
-    scripts.eachWhile |script, i|
+    scripts.eachWhile |script|
     {
-      // blank line and script header, like pods in a test run
-      if (!quiet) printAbove((i > 0 ? [""] : Str[,]).add(color(Term.bold, relPath(script))))
       done.val = false
       exit = Term.exec(Term.fan.add(script.osPath).addAll(targets), |line| { parseLine(line) }) |->Bool| { done.val }
       if (!done.val) endPod(exit == 0)
@@ -220,7 +219,8 @@ class Builder
     if (!step.startsWith("WritePod [file:") || !step.endsWith("]")) return
     try
     {
-      dir := File(step[15..-2].toUri).parent
+      // keep the 'file:' scheme so 'relPath' can match it to cwd
+      dir := File(step["WritePod [".size..-2].toUri).parent
       if (dir != null && !outDirs.contains(dir)) outDirs.add(dir)
     }
     catch (Err e) {}
@@ -295,7 +295,7 @@ class Builder
     else if (s.size > avail) s = s[0..<avail-1] + "…"
 
     head := pod == null ? "" : nameCol(pod) + targetCol(curTarget ?: "")
-    return "  " + head + color(Term.dim, s + timer)
+    return "  " + head + color(Term.dim, s.isEmpty ? timer.trimStart : s + timer)
   }
 
   ** Target in brackets padded so status words line up.
@@ -305,12 +305,11 @@ class Builder
     return colored ? color(Term.magenta, s) : s
   }
 
-  ** Pod name plus dim dot leaders out to the status column.
+  ** Pod name plus dim dot leaders out to the status column; the
+  ** longest name still gets 'Runner.minDots'.
   private Str nameCol(Str pod, Bool colored := true)
   {
-    n := nameWidth - pod.size
-    if (n <= 0) return "$pod  "
-    dots := "·" * n
+    dots := "·" * (nameWidth - pod.size + Runner.minDots)
     return "$pod " + (colored ? color(Term.dim, dots) : dots) + " "
   }
 

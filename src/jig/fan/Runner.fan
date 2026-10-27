@@ -56,6 +56,8 @@ class Runner : FantListener
   ** Run tests and return exit code.
   Int run()
   {
+    // blank line spaces results off from the command line
+    out.printLine
     parser := FantParser(this)
     redraw
     pool := startTicker
@@ -240,15 +242,16 @@ class Runner : FantListener
 
   ** Type name without pod plus dim dot leaders out to the count
   ** column, which is aligned across all pods.  The longest name
-  ** gets a plain two space gap.
+  ** still gets 'minDots' so every row reads the same.
   private Str typeCol(Str type, Bool colored := true)
   {
     name := type[podOf(type).size+2..-1]
-    n := nameWidth - name.size
-    if (n <= 0) return "$name  "
-    dots := "·" * n
+    dots := "·" * (nameWidth - name.size + minDots)
     return "$name " + (colored ? color(Term.dim, dots) : dots) + " "
   }
+
+  ** Fewest dot leaders between a name and its column.
+  internal static const Int minDots := 3
 
   private static Str typeOf(Str qname) { qname[0..<qname.indexr(".")] }
 
