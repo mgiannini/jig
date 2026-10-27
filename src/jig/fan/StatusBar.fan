@@ -18,12 +18,13 @@ const class StatusBar
 
   ** Render status line to fit within 'width' columns:
   **
-  **   [█▏░░░░] 6% 80/1324 | ✓ 80 4.8sec | core [79/149]
+  **   TEST [█▏░░░░] 6% 80/1324 | ✓ 80 4.8sec | core [79/149]
   **
+  ** The 'mode' prefix such as 'TEST' or 'BUILD' is omitted if null.
   ** If the line is too wide the label is clipped from the left or
   ** dropped first, then the time.
   static Str render(Int total, Int passed, Int failed, Str? label,
-                    Duration elapsed, Int width, Bool color := true)
+                    Duration elapsed, Int width, Bool color := true, Str? mode := null)
   {
     done := passed + failed
     pct  := "${(total <= 0 ? 0 : (done * 100 / total).min(100))}%"
@@ -32,8 +33,9 @@ const class StatusBar
     sep  := color ? Term.dim + groupSep + Term.reset : groupSep
 
     // [plain, colored] pairs so we can measure before coloring
-    head := ["[$bar] $pct $done/$total",
-             "[" + c + bar + Term.reset + "] " + Term.bold + pct + Term.reset + " $done/$total"]
+    pre  := mode == null ? ["", ""] : ["$mode ", Term.bold + mode + Term.reset + " "]
+    head := [pre[0] + "[$bar] $pct $done/$total",
+             pre[1] + "[" + c + bar + Term.reset + "] " + Term.bold + pct + Term.reset + " $done/$total"]
     res  := failed > 0
       ? ["✓ $passed ✗ $failed", Term.green + "✓ $passed" + Term.reset + " " + Term.red + "✗ $failed" + Term.reset]
       : ["✓ $passed", Term.green + "✓ $passed" + Term.reset]

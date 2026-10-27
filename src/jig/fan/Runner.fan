@@ -286,7 +286,7 @@ class Runner : FantListener
       // types too so the bar doesn't jump as each type finishes
       if (!quiet && curPod != null) { buf.add("\n"); drawn++ }
 
-      buf.add(StatusBar.render(total, passed, failed, barLabel, elapsed, width))
+      buf.add(StatusBar.render(total, passed, failed, barLabel, elapsed, width, true, "TEST"))
       liveDrawn = drawn
       out.print(buf.toStr).flush
     }

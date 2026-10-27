@@ -34,6 +34,9 @@ class Main : AbstractMain
 
   override Int run()
   {
+    // hidden prototype: 'jig _build [<pod> | <file.fan>]'
+    if (targets.first == "_build") return Builder.main(targets[1..-1], q)
+
     if (w)
     {
       // without a workenv workDir is homeDir; refuse to test the whole distro

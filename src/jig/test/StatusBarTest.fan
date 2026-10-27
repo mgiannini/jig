@@ -28,6 +28,16 @@ class StatusBarTest : Test
       "[${b(0)}] 0% 0/0 | ✓ 0 0.0sec")
   }
 
+  Void testMode()
+  {
+    verifyEq(StatusBar.render(10, 5, 0, "acme", 1234ms, 100, false, "BUILD"),
+      "BUILD [${b(10)}] 50% 5/10 | ✓ 5 1.2sec | acme")
+
+    // mode counts toward width so label is dropped first
+    verifyEq(StatusBar.render(10, 5, 0, "acme", 1234ms, 55, false, "BUILD"),
+      "BUILD [${b(10)}] 50% 5/10 | ✓ 5 1.2sec")
+  }
+
   Void testBar()
   {
     // eighth-cell partial blocks; percent rounds down

@@ -64,6 +64,13 @@ const class Term
     return Env.cur.os == "win32" ? ["cmd", "/C", path] : [path]
   }
 
+  ** Path to 'fan' launcher for current runtime.
+  static Str[] fan()
+  {
+    path := (Env.cur.homeDir + `bin/fan`).osPath
+    return Env.cur.os == "win32" ? ["cmd", "/C", path] : [path]
+  }
+
   static const Str clearLine := "\r\u001b[2K"
   static const Str upClearLine := "\u001b[1A\u001b[2K"
   static const Str reset     := "\u001b[0m"
@@ -71,5 +78,6 @@ const class Term
   static const Str dim       := "\u001b[2m"
   static const Str red       := "\u001b[31m"
   static const Str green     := "\u001b[32m"
+  static const Str yellow    := "\u001b[33m"
   static const Str magenta   := "\u001b[35m"
 }
