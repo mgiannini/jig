@@ -1,6 +1,8 @@
 # Changelog
 
-## Version 0.2 (working)
+## Version 0.3 (working)
+
+## Version 0.2 (27-Oct-2026)
 * **Breaking:** a command is now required; `jig acme` is `jig test acme`
 * **Breaking:** drop `-w`; `jig test` with no targets tests the workenv
 * Unknown options are now an error instead of a warning
