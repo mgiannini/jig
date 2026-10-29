@@ -140,5 +140,51 @@ class BuilderTest : Test
     verifyNull(Builder.findPod(FxPod(), "nope"))
   }
 
+  Void testSearchPod()
+  {
+    repo := tempDir + `repo/`
+    (repo + `.git/`).create
+    acme := repo + `src/a/acme/`
+    writeScript(acme, "acme")
+    writeScript(repo + `src/.hidden/acme/`, "acme")
+    writeScript(repo + `src/node_modules/acme/`, "acme")
+    writeScript(repo + `var/acme/`, "acme")
+    writeScript(repo + `src/b/beta/`, "betaWeb")
+    (repo + `src/c/acme/`).create
+
+    // repo root is the nearest dir with a .git dir, or a .git file
+    // as used by worktrees and submodules
+    verifyEq(Builder.repoRoot(acme), repo)
+    sub := repo + `sub/`
+    sub.plus(`.git`, false).out.print("gitdir: ../.git/modules/sub").close
+    (sub + `x/`).create
+    verifyEq(Builder.repoRoot(sub + `x/`), sub)
+
+    // only dirs named for the pod with a build.fan, skipping hidden
+    // dirs and node_modules; only src/ is searched when there is one
+    verifyEq(Builder.podDirs(repo + `src/`, "acme"), [acme])
+    verifyEq(Builder.searchPod(repo, "acme")?.scriptFile, acme + `build.fan`)
+
+    // nothing is found without src/
+    flat := tempDir + `flat/`
+    writeScript(flat + `acme/`, "acme")
+    verifyNull(Builder.searchPod(flat, "acme"))
+
+    // dir name must match the pod name it builds
+    verifyNull(Builder.searchPod(repo, "beta"))
+    verifyNull(Builder.searchPod(repo, "nope"))
+
+    // more than one match is an error
+    writeScript(repo + `src/d/acme/`, "acme")
+    verifyErr(ArgErr#) { Builder.searchPod(repo, "acme") }
+  }
+
+  private Void writeScript(File dir, Str pod)
+  {
+    (dir + `build.fan`).out.print(
+      "using build
+       class Build : BuildPod { new make() { podName = \"$pod\"; summary = \"\" } }").close
+  }
+
   private Void parse(Builder b, Str s) { s.splitLines.each |line| { b.parseLine(line) } }
 }

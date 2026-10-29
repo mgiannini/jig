@@ -40,8 +40,11 @@ class Builder
       args.each |arg|
       {
         if (arg.endsWith(".fan")) { scripts.add(load(File.os(arg).normalize)); return }
-        if (root == null) root = load(findRoot)
-        scripts.add(findPod(root, arg) ?: throw ArgErr("Unknown pod: $arg"))
+        // root build script may not include the pod, so fall back to
+        // searching the current repo's src/
+        if (root == null) { f := findRoot(false); if (f != null) root = load(f) }
+        pod := (root == null ? null : findPod(root, arg)) ?: searchPod(repoRoot(File.os(".").normalize), arg)
+        scripts.add(pod ?: throw ArgErr("Unknown pod: $arg"))
       }
       if (scripts.isEmpty) scripts.add(load(findRoot))
 
@@ -92,14 +95,16 @@ class Builder
     return Runner(targets, tests, quiet).run
   }
 
-  ** Root build script: './build.fan', else '<workDir>/src/build.fan'.
-  static File findRoot()
+  ** Root build script: './build.fan', else '<workDir>/src/build.fan';
+  ** if neither exists return null or throw ArgErr based on 'checked'.
+  static File? findRoot(Bool checked := true)
   {
     cwd := File.os(".").normalize
     f := cwd + `build.fan`
     if (f.exists) return f
     f = Env.cur.workDir + `src/build.fan`
     if (f.exists) return f
+    if (!checked) return null
     throw ArgErr("no build.fan in ${cwd.osPath} or ${f.parent.osPath}")
   }
 
@@ -111,6 +116,47 @@ class Builder
     try obj = Env.cur.compileScript(file).make
     catch (Err e) throw ArgErr("Cannot load $file.osPath: $e.msg")
     return obj as BuildScript ?: throw ArgErr("Not a BuildScript: $file.osPath")
+  }
+
+  ** Root of the repo holding 'dir': the nearest ancestor with a
+  ** '.git' dir or file, else 'dir' itself.
+  static File repoRoot(File dir)
+  {
+    for (File? d := dir; d != null; d = d.parent)
+      if (d.plus(`.git`, false).exists) return d
+    return dir
+  }
+
+  ** Search the 'src/' tree of repo 'root' for a pod named 'name' by
+  ** its directory: a dir named 'name' whose 'build.fan' builds that
+  ** pod.  Returns null if none or there is no 'src/', and throws if
+  ** more than one.
+  static BuildPod? searchPod(File root, Str name)
+  {
+    src := root + `src/`
+    if (!src.exists) return null
+    found := BuildPod[,]
+    podDirs(src, name).each |dir|
+    {
+      pod := load(dir + `build.fan`) as BuildPod
+      if (pod?.podName == name) found.add(pod)
+    }
+    if (found.size > 1)
+      throw ArgErr("Ambiguous pod '$name': " + found.map |p| { p.scriptFile.osPath }.join(", "))
+    return found.first
+  }
+
+  ** Dirs under 'dir' named 'name' with a 'build.fan'; skips hidden
+  ** dirs and 'node_modules'.
+  internal static File[] podDirs(File dir, Str name, File[] acc := File[,])
+  {
+    dir.listDirs.each |d|
+    {
+      if (d.name.startsWith(".") || d.name == "node_modules") return
+      if (d.name == name && (d + `build.fan`).exists) acc.add(d)
+      podDirs(d, name, acc)
+    }
+    return acc
   }
 
   ** Find BuildPod for 'name' anywhere under 'script', or null.
