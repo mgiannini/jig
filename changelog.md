@@ -1,6 +1,8 @@
 # Changelog
 
-## Version 0.3 (working)
+## Version 0.4 (working)
+
+## Version 0.3 (29-Oct-2026)
 * `jig build <pod>` works from anywhere in a repo: if the pod isn't under the root build script, find it by its directory under the repo's `src/`
 
 ## Version 0.2 (27-Oct-2026)
