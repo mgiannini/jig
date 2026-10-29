@@ -316,12 +316,14 @@ class Builder
   ** Print lines above the status bar.
   private Void printAbove(Str[] lines)
   {
+    if (!tty) { lines.each |s| { out.printLine(s) }; return }
     lock.lock
     try
     {
-      if (tty) out.print(erase)
-      lines.each |s| { out.printLine(s) }
-      redraw
+      // one write so the console never paints a partial frame
+      buf := StrBuf().add(erase)
+      lines.each |s| { buf.add(s).add("\n") }
+      Term.write(out, buf.add(frame).toStr)
     }
     finally lock.unlock
   }
@@ -334,18 +336,24 @@ class Builder
     lock.lock
     try
     {
-      if (!running.val) return
-      live := liveLine
-      buf  := StrBuf().add(erase)
-      drawn := 0
-      if (live != null) { buf.add(live).add("\n"); drawn++ }
-      if (!quiet) { buf.add("\n"); drawn++ }
-      label := quiet ? curPod : null
-      buf.add(StatusBar.render(total, built, failed, label, elapsed, width, true, "BUILD"))
-      liveDrawn = drawn
-      out.print(buf.toStr).flush
+      if (running.val) Term.write(out, erase + frame)
     }
     finally lock.unlock
+  }
+
+  ** Live pod line and status bar, or empty once stopped.
+  private Str frame()
+  {
+    if (!running.val) return ""
+    live := liveLine
+    buf  := StrBuf()
+    drawn := 0
+    if (live != null) { buf.add(live).add("\n"); drawn++ }
+    if (!quiet) { buf.add("\n"); drawn++ }
+    label := quiet ? curPod : null
+    buf.add(StatusBar.render(total, built, failed, label, elapsed, width, true, "BUILD"))
+    liveDrawn = drawn
+    return buf.toStr
   }
 
   ** Escape sequence to clear the status bar and any live

@@ -260,12 +260,14 @@ class Runner : FantListener
   ** Print lines above the status bar.
   private Void printAbove(Str[] lines)
   {
+    if (!tty) { lines.each |s| { out.printLine(s) }; return }
     lock.lock
     try
     {
-      if (tty) out.print(erase)
-      lines.each |s| { out.printLine(s) }
-      redraw
+      // one write so the console never paints a partial frame
+      buf := StrBuf().add(erase)
+      lines.each |s| { buf.add(s).add("\n") }
+      Term.write(out, buf.add(frame).toStr)
     }
     finally lock.unlock
   }
@@ -279,21 +281,27 @@ class Runner : FantListener
     lock.lock
     try
     {
-      if (!running.val) return
-      live := liveLine
-      buf  := StrBuf().add(erase)
-      drawn := 0
-      if (live != null) { buf.add(live).add("\n"); drawn++ }
-
-      // blank line separates results from the bar; kept between
-      // types too so the bar doesn't jump as each type finishes
-      if (!quiet && curPod != null) { buf.add("\n"); drawn++ }
-
-      buf.add(StatusBar.render(total, passed, failed, barLabel, elapsed, width, true, "TEST"))
-      liveDrawn = drawn
-      out.print(buf.toStr).flush
+      if (running.val) Term.write(out, erase + frame)
     }
     finally lock.unlock
+  }
+
+  ** Live type line and status bar, or empty once stopped.
+  private Str frame()
+  {
+    if (!running.val) return ""
+    live := liveLine
+    buf  := StrBuf()
+    drawn := 0
+    if (live != null) { buf.add(live).add("\n"); drawn++ }
+
+    // blank line separates results from the bar; kept between
+    // types too so the bar doesn't jump as each type finishes
+    if (!quiet && curPod != null) { buf.add("\n"); drawn++ }
+
+    buf.add(StatusBar.render(total, passed, failed, barLabel, elapsed, width, true, "TEST"))
+    liveDrawn = drawn
+    return buf.toStr
   }
 
   ** Label for the status bar: the current pod and its test progress,

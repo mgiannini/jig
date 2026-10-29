@@ -57,6 +57,17 @@ const class Term
     return exit
   }
 
+  ** Write frame 's' to 'out' as one encoded buffer and flush.
+  ** Writing char by char lets 'System.out' split a frame on newlines
+  ** and its 128 byte buffer, which Windows consoles paint as separate
+  ** partial frames.  The frame is also wrapped in synchronized output
+  ** (DEC mode 2026) so terminals that support it paint it at once;
+  ** others ignore the unknown mode.
+  static Void write(OutStream out, Str s)
+  {
+    out.writeBuf(Buf().print(syncBegin).print(s).print(syncEnd).flip).flush
+  }
+
   ** Path to 'fant' launcher for current runtime.
   static Str[] fant()
   {
@@ -73,6 +84,8 @@ const class Term
 
   static const Str clearLine := "\r\u001b[2K"
   static const Str upClearLine := "\u001b[1A\u001b[2K"
+  static const Str syncBegin := "\u001b[?2026h"
+  static const Str syncEnd   := "\u001b[?2026l"
   static const Str reset     := "\u001b[0m"
   static const Str bold      := "\u001b[1m"
   static const Str dim       := "\u001b[2m"
