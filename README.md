@@ -70,12 +70,21 @@ jig build [<pod> | <file.fan>]* [options]
 
 ```sh
 jig build                         # ./build.fan, else <workDir>/src/build.fan
-jig build acme                    # pod acme under the root build script
+jig build acme                    # pod acme under the root build script or src/
 jig build src/acme/build.fan      # a build script by path
 jig build -c                      # clean only
 jig build -f                      # clean, compile, then test
 jig build -t dist                 # run another build script target
 ```
+
+A pod name is looked up under the root build script first. That script
+depends on where you run jig, so it may not include the pod: in a
+directory with its own `build.fan` only the pods under it are seen, and
+in one without, such as a repo root, `<workDir>/src/build.fan` may belong
+to another repo. If the pod isn't found there, jig searches `src/` of the
+current repo, the nearest parent with `.git`, for a directory with that
+name whose `build.fan` builds that pod, so `jig build <pod>` works from
+anywhere in the repo.
 
 A `BuildGroup` builds all of its children, including nested groups.
 `jig build` compiles by default; `-c`, `-f`, and `-t` each pick what runs

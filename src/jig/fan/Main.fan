@@ -58,7 +58,7 @@ class Main : AbstractMain
          -js           test legacy JavaScript environment
 
        Build targets:
-         <pod> under the root build script, or a build script path;
+         <pod> in the current repo, or a build script path;
          with no targets build ./build.fan or <workDir>/src/build.fan
 
        Build options:

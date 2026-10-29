@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version 0.3 (working)
+* `jig build <pod>` works from anywhere in a repo: if the pod isn't under the root build script, find it by its directory under the repo's `src/`
 
 ## Version 0.2 (27-Oct-2026)
 * **Breaking:** a command is now required; `jig acme` is `jig test acme`
