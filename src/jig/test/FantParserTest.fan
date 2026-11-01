@@ -132,12 +132,83 @@ class FantParserTest : Test
       "start acme::FooTest.testA",
       "pass acme::FooTest.testA 1",
       "stray -- Run: te[14:19:22] [info] hi",
-      "stray    Pass: acme::FooTest.testB [2]",
+      "start acme::FooTest.testB",
+      "pass acme::FooTest.testB 2",
       "start acme::FooTest.testC",
       "fail acme::FooTest.testC [,] [sys::Err: boom]",
       "stray -- Run: ac",
       "start acme::FooTest.testE",
       "pass acme::FooTest.testE 3",
+    ])
+  }
+
+  Void testLostFail()
+  {
+    // testB's TEST FAILED line was mangled, so only fant's list has it
+    r := parse(
+      """-- Run: acme::FooTest.testA
+
+         TEST FAILED
+         sys::Err: boom
+
+         -- Run: acme::FooTest.testB
+         TEST FA[info] hiILED
+         -- Run: acme::FooTest.testC
+            Pass: acme::FooTest.testC [1]
+
+         Time: 12ms
+
+         Failed:
+           acme::FooTest.testA
+           acme::FooTest.testB
+
+         ***
+         *** 2 FAILURES [1 types, 3 methods, 1 verifies]
+         ***
+         """)
+    verifyEq(r.events, [
+      "start acme::FooTest.testA",
+      "fail acme::FooTest.testA [,] [sys::Err: boom]",
+      "start acme::FooTest.testB",
+      "start acme::FooTest.testC",
+      "pass acme::FooTest.testC 1",
+      "lostfail acme::FooTest.testB",
+      "summary 1 3 1",
+    ])
+  }
+
+  Void testLostLastPass()
+  {
+    // last test's result was mangled; must still reach the summary
+    r := parse(
+      """-- Run: acme::FooTest.testA
+            Pa[info] hiss: acme::FooTest.testA [1]
+
+         Time: 5min 3sec
+
+         ***
+         *** All tests passed! [1 types, 1 methods, 1 verifies]
+         ***
+         """)
+    verifyEq(r.events, ["start acme::FooTest.testA", "summary 1 1 1"])
+    verify(r.parser.isDone)
+  }
+
+  Void testTimeEcho()
+  {
+    // test output that only looks like the end of the run
+    r := parse(
+      """-- Run: acme::FooTest.testA
+         Time: 12ms
+            Pass: acme::FooTest.testA [1]
+         -- Run: acme::FooTest.testB
+         Time: of day
+            Pass: acme::FooTest.testB [1]
+         """)
+    verifyEq(r.events, [
+      "start acme::FooTest.testA",
+      "start acme::FooTest.testB",
+      "pass acme::FooTest.testB 1",
     ])
   }
 
@@ -157,6 +228,7 @@ internal class FxListener : FantListener
   override Void onStart(Str q) { events.add("start $q") }
   override Void onPass(Str q, Int v) { events.add("pass $q $v") }
   override Void onFail(Str q, Str[] o, Str[] t) { events.add("fail $q $o $t") }
+  override Void onLostFail(Str q) { events.add("lostfail $q") }
   override Void onStray(Str s) { events.add("stray $s") }
   override Void onSummary(Int t, Int m, Int v) { events.add("summary $t $m $v") }
 }

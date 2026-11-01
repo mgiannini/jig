@@ -214,6 +214,24 @@ class RunnerTest : Test
     verifyEq(buf.flip.readAllLines, ["-- Run: te[14:19:22] [info] hi"])
   }
 
+  Void testLostFail()
+  {
+    tests := ["acme::FooTest.testA", "acme::FooTest.testB"]
+    buf := Buf()
+    r := Runner(["acme"], tests, true, false, buf.out)
+    r.fixedNow = 0ms
+    r.onStart(tests[0]); r.onPass(tests[0], 1)
+    r.onLostFail(tests[1])
+    verifyEq(r.summary(1, true), 1)
+    verifyEq(buf.flip.readAllLines,
+      ["",
+       "FAIL: acme::FooTest.testB",
+       "  Details lost: fant output was mangled by other threads",
+       "",
+       "✗ 1 failed, 1 passed of 2 tests in 0.0sec",
+       "✗ acme::FooTest.testB [1/2 failed]"])
+  }
+
   Void testSummaryExitOnly()
   {
     // all tests recorded as passed but fant disagrees

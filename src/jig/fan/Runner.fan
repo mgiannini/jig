@@ -138,6 +138,13 @@ class Runner : FantListener
     }
   }
 
+  override Void onLostFail(Str qname)
+  {
+    failed++
+    failures.add(qname)
+    failDetails.add(failLines(qname, Str[,], ["Details lost: fant output was mangled by other threads"], ""))
+  }
+
   override Void onStray(Str line) { printAbove([line]) }
 
   override Void onSummary(Int types, Int methods, Int verifies) { this.verifies = verifies }

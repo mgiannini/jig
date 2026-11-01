@@ -25,6 +25,10 @@ mixin FantListener
   ** before failing, and 'trace' is the error stack trace.
   abstract Void onFail(Str qname, Str[] output, Str[] trace)
 
+  ** Test method is in fant's final list of failures, but its own
+  ** failure output was never parsed so no details are available.
+  abstract Void onLostFail(Str qname)
+
   ** Output not belonging to any test (ex: fant startup errors).
   abstract Void onStray(Str line)
 
@@ -50,7 +54,7 @@ class FantParser
   {
     if (state == stDone) return
 
-    if (state != stSummary && line.startsWith("-- Run: "))
+    if (line.startsWith("-- Run: "))
     {
       endTrace
       name := line[8..-1]
@@ -74,7 +78,7 @@ class FantParser
     {
       case stIdle:
         if (line.startsWith("Time: ")) state = stSummary
-        else if (!line.trim.isEmpty) listener.onStray(line)
+        else if (!recoverPass(line) && !line.trim.isEmpty) listener.onStray(line)
 
       case stTest:
         pass := "   Pass: ${cur} ["
@@ -89,6 +93,7 @@ class FantParser
           trace.clear
           state = stTrace
         }
+        else if (timeRegex.matches(line)) state = stSummary
         else output.add(line)
 
       case stTrace:
@@ -96,6 +101,13 @@ class FantParser
         else trace.add(line)
 
       case stSummary:
+        f := failedRegex.matcher(line)
+        if (f.matches && !reported.containsKey(f.group(1)))
+        {
+          reported[f.group(1)] = true
+          listener.onLostFail(f.group(1))
+        }
+
         m := summaryRegex.matcher(line)
         if (m.matches)
         {
@@ -113,7 +125,19 @@ class FantParser
   {
     if (state != stTrace) return
     state = stIdle
+    reported[cur] = true
     listener.onFail(cur, trim(output), trim(trace))
+  }
+
+  ** A pass line outside of a test means its '-- Run' line was mangled
+  ** by output from other threads; returns true if 'line' was one.
+  private Bool recoverPass(Str line)
+  {
+    m := passRegex.matcher(line)
+    if (!m.matches) return false
+    listener.onStart(m.group(1))
+    listener.onPass(m.group(1), m.group(2).toInt)
+    return true
   }
 
   ** Strip trailing blank lines fant prints around failures.
@@ -125,6 +149,13 @@ class FantParser
   }
 
   private static const Regex qnameRegex := Regex<|^\w+::\w+\.\w+$|>
+
+  private static const Regex passRegex := Regex<|^   Pass: (\w+::\w+\.\w+) \[(\d+)\]$|>
+
+  private static const Regex failedRegex := Regex<|^  (\w+::\w+\.\w+)$|>
+
+  ** Strict since a test may echo anything while in 'stTest'.
+  private static const Regex timeRegex := Regex<|^Time: \d[\d.]*(ms|sec|min|hr|day)( \d+(sec|min|hr))*$|>
 
   private static const Regex summaryRegex :=
     Regex<|^\*\*\* .* \[(\d+) types, (\d+) methods, (\d+) verifies\]$|>
@@ -140,5 +171,6 @@ class FantParser
   private Str cur := ""
   private Str[] output := [,]
   private Str[] trace := [,]
+  private Str:Bool reported := [:]
   private const AtomicBool done := AtomicBool(false)
 }
