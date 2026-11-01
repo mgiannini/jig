@@ -204,6 +204,16 @@ class RunnerTest : Test
       "✗ 1 failed, 1 unrecorded, 1 passed of 3 tests in 0.0sec"))
   }
 
+  Void testGarbledRun()
+  {
+    // mangled test name must not take down the run
+    buf := Buf()
+    r := Runner(["acme"], ["acme::FooTest.testA"], false, false, buf.out)
+    p := FantParser(r)
+    p.parseLine("-- Run: te[14:19:22] [info] hi")
+    verifyEq(buf.flip.readAllLines, ["-- Run: te[14:19:22] [info] hi"])
+  }
+
   Void testSummaryExitOnly()
   {
     // all tests recorded as passed but fant disagrees

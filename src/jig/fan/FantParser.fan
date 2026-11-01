@@ -53,7 +53,17 @@ class FantParser
     if (state != stSummary && line.startsWith("-- Run: "))
     {
       endTrace
-      cur = line[8..-1]
+      name := line[8..-1]
+
+      // output from other threads can land inside the name
+      if (!qnameRegex.matches(name))
+      {
+        state = stIdle
+        listener.onStray(line)
+        return
+      }
+
+      cur = name
       output.clear
       state = stTest
       listener.onStart(cur)
@@ -113,6 +123,8 @@ class FantParser
     while (!acc.isEmpty && acc.last.trim.isEmpty) acc.removeAt(-1)
     return acc
   }
+
+  private static const Regex qnameRegex := Regex<|^\w+::\w+\.\w+$|>
 
   private static const Regex summaryRegex :=
     Regex<|^\*\*\* .* \[(\d+) types, (\d+) methods, (\d+) verifies\]$|>

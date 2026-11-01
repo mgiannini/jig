@@ -112,6 +112,35 @@ class FantParserTest : Test
     verifyEq(r.events.size, 3)
   }
 
+  Void testGarbledRun()
+  {
+    // log output from another thread landed inside the test name
+    r := parse(
+      """-- Run: acme::FooTest.testA
+            Pass: acme::FooTest.testA [1]
+         -- Run: te[14:19:22] [info] hi
+            Pass: acme::FooTest.testB [2]
+         -- Run: acme::FooTest.testC
+
+         TEST FAILED
+         sys::Err: boom
+         -- Run: ac
+         -- Run: acme::FooTest.testE
+            Pass: acme::FooTest.testE [3]
+         """)
+    verifyEq(r.events, [
+      "start acme::FooTest.testA",
+      "pass acme::FooTest.testA 1",
+      "stray -- Run: te[14:19:22] [info] hi",
+      "stray    Pass: acme::FooTest.testB [2]",
+      "start acme::FooTest.testC",
+      "fail acme::FooTest.testC [,] [sys::Err: boom]",
+      "stray -- Run: ac",
+      "start acme::FooTest.testE",
+      "pass acme::FooTest.testE 3",
+    ])
+  }
+
   private FxListener parse(Str text)
   {
     r := FxListener()
