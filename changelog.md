@@ -1,6 +1,8 @@
 # Changelog
 
-## Version 0.4 (working)
+## Version 0.5 (working)
+
+## Version 0.4 (1-Nov-2026)
 * Fix `jig test` reporting success when fant's output was mangled by log output from other threads: tests with no recorded result, or a non-zero fant exit, now fail the run
 * Fix `jig test` crash when a `-- Run:` line's test name was mangled by log output from other threads
 * Recover results when fant's output is mangled: count readable `Pass` lines, report failures from fant's final list, and no longer report `fant exited early` when the last test's result is lost
