@@ -182,9 +182,11 @@ class Runner : FantListener
   internal Str[] podSummary()
   {
     if (!multiPod || curPod == null) return Str[,]
-    res := podFailed > 0
-      ? color(Term.red, "✗ $podFailed failed, $podPassed passed")
-      : color(Term.green, "✓ $podPassed passed")
+    missing := (podTotals[curPod] ?: 0) - podPassed - podFailed
+    bad := badCounts(podFailed, missing)
+    res := bad.isEmpty
+      ? color(Term.green, "✓ $podPassed passed")
+      : color(Term.red, "✗ $bad$podPassed passed")
 
     return ["  [$res " + color(Term.dim, "(${StatusBar.fmtDurMs(now - podStart)})") + "]"]
   }
@@ -357,6 +359,7 @@ class Runner : FantListener
   internal Int summary(Int exit, Bool complete)
   {
     ran := passed + failed
+    missing := total - ran
     dur := StatusBar.fmtDur(elapsed)
     vs  := verifies == null ? "" : " [$verifies.toLocale verifies]"
 
@@ -372,8 +375,13 @@ class Runner : FantListener
     Int code := 1
     if (!complete)
       out.printLine(color(Term.red, "✗ fant exited early (exit $exit): ran $ran of ${tests(total)} in $dur"))
-    else if (failed > 0)
-      out.printLine(color(Term.red, "✗ $failed failed, $passed passed of ${tests(total)}$vs in $dur"))
+    else if (failed > 0 || missing > 0 || exit != 0)
+    {
+      // fant exits with its failure count; a mismatch means fant saw
+      // something we did not, so show it rather than trust our counts
+      note := exit == failed ? "" : " (fant exit $exit)"
+      out.printLine(color(Term.red, "✗ ${badCounts(failed, missing)}$passed passed of ${tests(total)}$vs in $dur$note"))
+    }
     else
     {
       msg := passed == 1 ? "1 test passed" : "All $passed tests passed"
@@ -390,6 +398,16 @@ class Runner : FantListener
       out.printLine(color(Term.red, "✗ ${q.padr(w)} [$n/${typeTotals[type] ?: n} failed]"))
     }
     return code
+  }
+
+  ** Leading counts for a summary line with anything not passed.
+  ** Tests are 'unrecorded' when fant's lines for them were mangled
+  ** by output from other threads, so we have no result for them.
+  private static Str badCounts(Int failed, Int missing)
+  {
+    s := failed > 0 ? "$failed failed, " : ""
+    if (missing > 0) s += "$missing unrecorded, "
+    return s
   }
 
   private static Str tests(Int n) { n == 1 ? "1 test" : "$n tests" }

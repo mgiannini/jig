@@ -170,6 +170,62 @@ class RunnerTest : Test
     verifyEq(buf.flip.readAllLines, ["✓ 1 test passed [1 verifies] in 0.0sec"])
   }
 
+  Void testSummaryUnrecorded()
+  {
+    // parser lost testB, fant says no failures; must not report success
+    tests := ["acme::FooTest.testA", "acme::FooTest.testB"]
+    buf := Buf()
+    r := Runner(["acme"], tests, true, false, buf.out)
+    r.fixedNow = 0ms
+    r.onStart(tests[0]); r.onPass(tests[0], 1)
+    r.onSummary(1, 2, 2)
+    verifyEq(r.summary(0, true), 1)
+    verifyEq(buf.flip.readAllLines,
+      ["✗ 1 unrecorded, 1 passed of 2 tests [2 verifies] in 0.0sec"])
+
+    // lost test was a failure, so fant's exit is non-zero
+    buf = Buf()
+    r = Runner(["acme"], tests, true, false, buf.out)
+    r.fixedNow = 0ms
+    r.onStart(tests[0]); r.onPass(tests[0], 1)
+    verifyEq(r.summary(1, true), 1)
+    verifyEq(buf.flip.readAllLines,
+      ["✗ 1 unrecorded, 1 passed of 2 tests in 0.0sec (fant exit 1)"])
+
+    // recorded failure plus a lost test
+    tests.add("acme::FooTest.testC")
+    buf = Buf()
+    r = Runner(["acme"], tests, true, false, buf.out)
+    r.fixedNow = 0ms
+    r.onStart(tests[0]); r.onPass(tests[0], 1)
+    r.onStart(tests[1]); r.onFail(tests[1], [,], ["sys::Err: boom"])
+    verifyEq(r.summary(1, true), 1)
+    verify(buf.flip.readAllLines.contains(
+      "✗ 1 failed, 1 unrecorded, 1 passed of 3 tests in 0.0sec"))
+  }
+
+  Void testSummaryExitOnly()
+  {
+    // all tests recorded as passed but fant disagrees
+    buf := Buf()
+    r := Runner(["acme"], ["acme::FooTest.testA"], true, false, buf.out)
+    r.fixedNow = 0ms
+    r.onStart("acme::FooTest.testA"); r.onPass("acme::FooTest.testA", 1)
+    verifyEq(r.summary(1, true), 1)
+    verifyEq(buf.flip.readAllLines,
+      ["✗ 1 passed of 1 test in 0.0sec (fant exit 1)"])
+  }
+
+  Void testPodSummaryUnrecorded()
+  {
+    tests := ["acme::FooTest.testA", "acme::FooTest.testB", "beta::BarTest.testC"]
+    r := Runner(["acme", "beta"], tests, false, false, Buf().out)
+    r.fixedNow = 0ms
+    r.onStart(tests[0])
+    r.onPass(tests[0], 1)
+    verifyEq(r.podSummary, ["  [✗ 1 unrecorded, 1 passed (0ms)]"])
+  }
+
   Void testPodSummarySinglePod()
   {
     // final summary already covers a single pod

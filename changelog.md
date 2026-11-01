@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version 0.4 (working)
+* Fix `jig test` reporting success when fant's output was mangled by log output from other threads: tests with no recorded result, or a non-zero fant exit, now fail the run
 
 ## Version 0.3 (29-Oct-2026)
 * `jig build <pod>` works from anywhere in a repo: if the pod isn't under the root build script, find it by its directory under the repo's `src/`

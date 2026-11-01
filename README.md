@@ -159,6 +159,11 @@ harness frames (reflection, `TestRunner`, `verify` internals) removed.
 Then a one-line summary, plus one line per failure showing how many tests
 in that class failed.
 
+A run only succeeds if every test has a recorded result and `fant` exits `0`.
+Output from other threads can mangle `fant`'s lines; tests lost this way are
+reported as `unrecorded` and fail the run, along with `(fant exit N)` if
+`fant`'s exit code disagrees with the failures jig recorded.
+
 ## Terminal output
 
 Options may come before or after targets. Exit code is `0` on success, `1`
