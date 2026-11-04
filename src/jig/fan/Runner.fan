@@ -6,8 +6,6 @@
 //   26 Oct 2026  Andy Frank  Creation
 //
 
-using concurrent
-
 *************************************************************************
 ** Runner
 *************************************************************************
@@ -41,16 +39,18 @@ class Runner : FantListener
     this.multiPod = pods.size > 1
 
     this.quiet   = quiet
-    this.tty     = tty ?: Term.isTty
-    this.width   = this.tty ? Term.width : 80
+    isTty       := tty ?: Term.isTty
+    this.term    = Term(out, Env.cur.err, isTty, isTty)
+    this.width   = term.width
     this.out     = out
+    this.region  = LiveRegion(term) |->Str[]| { frame }
   }
 
   ** Run fant for '-es' or '-js' with output passed through as-is.
   static Int passthrough(Str flag, Str[] targets)
   {
     out := Env.cur.out
-    return Term.exec(Term.fant.add(flag).addAll(targets)) |line| { out.printLine(line).flush }
+    return Proc.exec(Proc.fant.add(flag).addAll(targets)) |line| { out.printLine(line).flush }
   }
 
   ** Run tests and return exit code.
@@ -60,31 +60,14 @@ class Runner : FantListener
     out.printLine
     parser := FantParser(this)
     redraw
-    pool := startTicker
-    exit := Term.exec(Term.fant.addAll(targets), |line| { parser.parseLine(line) }) |->Bool| { parser.isDone }
+    region.start
+    exit := Proc.exec(Proc.fant.addAll(targets), |line| { parser.parseLine(line) }) |->Bool| { parser.isDone }
     parser.finish
     if (!quiet) { printType; printAbove(podSummary) }
 
     // stop ticker before writing summary
-    running.val = false
-    pool?.stop?.join(1sec)
-    if (tty) out.print(erase).flush
+    region.stop
     return summary(exit, parser.isDone)
-  }
-
-  ** Redraw every 100ms so elapsed time moves during long tests.
-  private ActorPool? startTicker()
-  {
-    if (!tty) return null
-    pool := ActorPool { it.name = "jigTicker"; it.maxThreads = 1 }
-    self := Unsafe(this)
-    flag := this.running
-    Actor(pool) |->Obj?|
-    {
-      while (flag.val) { Actor.sleep(100ms); ((Runner)self.val).redraw }
-      return null
-    }.send(null)
-    return pool
   }
 
 //////////////////////////////////////////////////////////////////////////
@@ -127,13 +110,13 @@ class Runner : FantListener
     failDetails.add(failLines(qname, output, trace, ""))
     if (quiet)
     {
-      printAbove([color(Term.red, "FAIL: $qname")])
+      printAbove([term.err("FAIL: $qname")])
     }
     else
     {
       typeFailed++
       podFailed++
-      typeFails.add("    " + color(Term.red, "FAIL: " + qname[qname.index(".")+1..-1]))
+      typeFails.add("    " + term.err("FAIL: " + qname[qname.index(".")+1..-1]))
       checkType
     }
   }
@@ -156,8 +139,8 @@ class Runner : FantListener
   ** Lines for a failed test with a red header to stand out.
   private Str[] failLines(Str name, Str[] output, Str[] trace, Str indent)
   {
-    lines := [indent + color(Term.red, "FAIL: $name")]
-    output.each |s| { lines.add(color(Term.dim, "$indent  | $s")) }
+    lines := [indent + term.err("FAIL: $name")]
+    output.each |s| { lines.add(term.dim("$indent  | $s")) }
     trimTrace(trace).each |s| { lines.add("$indent  $s") }
     return lines
   }
@@ -176,7 +159,7 @@ class Runner : FantListener
     if (pod == curPod) return
     lines := Str[,]
     if (curPod != null) lines.addAll(podSummary).add("")
-    lines.add(tty ? "$Term.bold$pod$Term.reset" : pod)
+    lines.add(term.bold(pod))
     curPod     = pod
     podPassed  = 0
     podFailed  = 0
@@ -192,10 +175,10 @@ class Runner : FantListener
     missing := (podTotals[curPod] ?: 0) - podPassed - podFailed
     bad := badCounts(podFailed, missing)
     res := bad.isEmpty
-      ? color(Term.green, "✓ $podPassed passed")
-      : color(Term.red, "✗ $bad$podPassed passed")
+      ? term.ok("✓ $podPassed passed")
+      : term.err("✗ $bad$podPassed passed")
 
-    return ["  [$res " + color(Term.dim, "(${StatusBar.fmtDurMs(now - podStart)})") + "]"]
+    return ["  [$res " + term.dim("(${StatusBar.fmtDurMs(now - podStart)})") + "]"]
   }
 
   ** Print final line for current type followed by its failures.
@@ -208,9 +191,9 @@ class Runner : FantListener
     expected := typeTotals[type] ?: typePassed + typeFailed
     ok := typeFailed == 0 && typePassed >= expected
     lines := ["  " + typeCol(type) +
-      color(Term.magenta, countStr(type, typePassed, expected)) + " " +
-      (ok ? color(Term.green, "pass") : color(Term.red, "fail")) + " " +
-      color(Term.dim, "(${StatusBar.fmtDurMs(now - typeStart)})")]
+      term.accent(countStr(type, typePassed, expected)) + " " +
+      (ok ? term.ok("pass") : term.err("fail")) + " " +
+      term.dim("(${StatusBar.fmtDurMs(now - typeStart)})")]
     lines.addAll(typeFails)
 
     typePassed = 0
@@ -236,9 +219,9 @@ class Runner : FantListener
     if (avail < 4) method = ""
     else if (method.size > avail) method = method[0..<avail-1] + "…"
 
-    s := "  " + typeCol(type) + color(Term.magenta, count)
-    if (typeFailed > 0) s += " " + color(Term.red, "$typeFailed failed")
-    if (!method.isEmpty) s += "  " + color(Term.dim, method + timer)
+    s := "  " + typeCol(type) + term.accent(count)
+    if (typeFailed > 0) s += " " + term.err("$typeFailed failed")
+    if (!method.isEmpty) s += "  " + term.dim(method + timer)
     return s
   }
 
@@ -256,7 +239,7 @@ class Runner : FantListener
   {
     name := type[podOf(type).size+2..-1]
     dots := "·" * (nameWidth - name.size + minDots)
-    return "$name " + (colored ? color(Term.dim, dots) : dots) + " "
+    return "$name " + (colored ? term.dim(dots) : dots) + " "
   }
 
   ** Fewest dot leaders between a name and its column.
@@ -267,50 +250,24 @@ class Runner : FantListener
   private static Str podOf(Str qname) { qname[0..<qname.index("::")] }
 
   ** Print lines above the status bar.
-  private Void printAbove(Str[] lines)
-  {
-    if (!tty) { lines.each |s| { out.printLine(s) }; return }
-    lock.lock
-    try
-    {
-      // one write so the console never paints a partial frame
-      buf := StrBuf().add(erase)
-      lines.each |s| { buf.add(s).add("\n") }
-      Term.write(out, buf.add(frame).toStr)
-    }
-    finally lock.unlock
-  }
+  private Void printAbove(Str[] lines) { region.printAbove(lines) }
 
-  ** Redraw live type line and status bar in place; called from
-  ** both the output pump thread and the ticker, so serialized
-  ** with 'lock'.
-  private Void redraw()
-  {
-    if (!tty) return
-    lock.lock
-    try
-    {
-      if (running.val) Term.write(out, erase + frame)
-    }
-    finally lock.unlock
-  }
+  ** Redraw live type line and status bar in place.
+  private Void redraw() { region.redraw }
 
-  ** Live type line and status bar, or empty once stopped.
-  private Str frame()
+  ** Lines of the live region: live type line and status bar.
+  private Str[] frame()
   {
-    if (!running.val) return ""
+    lines := Str[,]
     live := liveLine
-    buf  := StrBuf()
-    drawn := 0
-    if (live != null) { buf.add(live).add("\n"); drawn++ }
+    if (live != null) lines.add(live)
 
     // blank line separates results from the bar; kept between
     // types too so the bar doesn't jump as each type finishes
-    if (!quiet && curPod != null) { buf.add("\n"); drawn++ }
+    if (!quiet && curPod != null) lines.add("")
 
-    buf.add(StatusBar.render(total, passed, failed, barLabel, elapsed, width, true, "TEST"))
-    liveDrawn = drawn
-    return buf.toStr
+    lines.add(StatusBar.render(total, passed, failed, barLabel, elapsed, width, term.color, "TEST"))
+    return lines
   }
 
   ** Label for the status bar: the current pod and its test progress,
@@ -323,15 +280,6 @@ class Runner : FantListener
     pod := curPod
     if (pod == null) return null
     return "$pod [${podPassed + podFailed}/${podTotals[pod]}]"
-  }
-
-  ** Escape sequence to clear the status bar and any live
-  ** lines above it, leaving the cursor where they started.
-  private Str erase()
-  {
-    s := Term.clearLine + Term.upClearLine * liveDrawn
-    liveDrawn = 0
-    return s
   }
 
   ** Strip test harness frames (verify internals, reflection,
@@ -381,18 +329,18 @@ class Runner : FantListener
 
     Int code := 1
     if (!complete)
-      out.printLine(color(Term.red, "✗ fant exited early (exit $exit): ran $ran of ${tests(total)} in $dur"))
+      out.printLine(term.err("✗ fant exited early (exit $exit): ran $ran of ${tests(total)} in $dur"))
     else if (failed > 0 || missing > 0 || exit != 0)
     {
       // fant exits with its failure count; a mismatch means fant saw
       // something we did not, so show it rather than trust our counts
       note := exit == failed ? "" : " (fant exit $exit)"
-      out.printLine(color(Term.red, "✗ ${badCounts(failed, missing)}$passed passed of ${tests(total)}$vs in $dur$note"))
+      out.printLine(term.err("✗ ${badCounts(failed, missing)}$passed passed of ${tests(total)}$vs in $dur$note"))
     }
     else
     {
       msg := passed == 1 ? "1 test passed" : "All $passed tests passed"
-      out.printLine(color(Term.green, "✓ $msg$vs in $dur"))
+      out.printLine(term.ok("✓ $msg$vs in $dur"))
       code = 0
     }
 
@@ -402,7 +350,7 @@ class Runner : FantListener
     {
       type := typeOf(q)
       n := failures.findAll { typeOf(it) == type }.size
-      out.printLine(color(Term.red, "✗ ${q.padr(w)} [$n/${typeTotals[type] ?: n} failed]"))
+      out.printLine(term.err("✗ ${q.padr(w)} [$n/${typeTotals[type] ?: n} failed]"))
     }
     return code
   }
@@ -419,8 +367,6 @@ class Runner : FantListener
 
   private static Str tests(Int n) { n == 1 ? "1 test" : "$n tests" }
 
-  private Str color(Str c, Str s) { tty ? "$c$s$Term.reset" : s }
-
   private Duration elapsed() { now - start }
 
   ** Current time; tests may freeze it with 'fixedNow'.
@@ -434,10 +380,11 @@ class Runner : FantListener
 //////////////////////////////////////////////////////////////////////////
 
   private OutStream out
+  private Term term
+  private LiveRegion region
   private const Str[] targets
   private const Bool quiet
   private const Int total
-  private const Bool tty
   private const Int width
   private const Duration start := Duration.now
   private Int passed
@@ -461,7 +408,4 @@ class Runner : FantListener
   private Int typePassed
   private Int typeFailed
   private Str[] typeFails := [,]
-  private Int liveDrawn
-  private const Lock lock := Lock.makeReentrant
-  private const AtomicBool running := AtomicBool(true)
 }

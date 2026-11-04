@@ -26,28 +26,24 @@ const class StatusBar
   static Str render(Int total, Int passed, Int failed, Str? label,
                     Duration elapsed, Int width, Bool color := true, Str? mode := null)
   {
+    t    := Term(Env.cur.out, Env.cur.err, color, false)
     done := passed + failed
     pct  := "${(total <= 0 ? 0 : (done * 100 / total).min(100))}%"
-    bar  := bar(done, total)
-    c    := failed > 0 ? Term.red : Term.green
-    sep  := color ? Term.dim + groupSep + Term.reset : groupSep
-
-    // [plain, colored] pairs so we can measure before coloring
-    pre  := mode == null ? ["", ""] : ["$mode ", Term.bold + mode + Term.reset + " "]
-    head := [pre[0] + "[$bar] $pct $done/$total",
-             pre[1] + "[" + c + bar + Term.reset + "] " + Term.bold + pct + Term.reset + " $done/$total"]
-    res  := failed > 0
-      ? ["✓ $passed ✗ $failed", Term.green + "✓ $passed" + Term.reset + " " + Term.red + "✗ $failed" + Term.reset]
-      : ["✓ $passed", Term.green + "✓ $passed" + Term.reset]
+    bar  := t.style(failed > 0 ? Style.err : Style.ok, bar(done, total))
+    pre  := mode == null ? "" : t.bold(mode) + " "
+    head := pre + "[$bar] " + t.bold(pct) + " $done/$total"
+    res  := t.ok("✓ $passed") + (failed > 0 ? " " + t.err("✗ $failed") : "")
     time := " " + fmtBarDur(elapsed)
 
     // drop time if even the base line doesn't fit
     max  := width - 1
-    if (head[0].size + groupSep.size + res[0].size + time.size > max) time = ""
-    base := head[0].size + groupSep.size + res[0].size + time.size
+    base := Term.visibleSize(head) + groupSep.size + Term.visibleSize(res)
+    if (base + time.size > max) time = ""
+    base += time.size
 
-    s := StrBuf()
-    s.add(color ? head[1] : head[0]).add(sep).add(color ? res[1] : res[0]).add(time)
+    sep := t.dim(groupSep)
+    s   := StrBuf()
+    s.add(head).add(sep).add(res).add(time)
 
     // clip label from the left so the end stays visible, or drop it
     // if too little room is left to be useful

@@ -76,7 +76,7 @@ class StatusBarTest : Test
   Void testColor()
   {
     s := StatusBar.render(10, 5, 1, "acme::FooTest.testA", 0ms, 100, true)
-    verify(s.contains(Term.red))
+    verify(s.contains(Style.red.code))
     verify(s.endsWith("acme::FooTest.testA"))
     verifyEq(Regex<|\u001b\[\d+m|>.split(s).join, render(10, 5, 1, "acme::FooTest.testA", 0ms, 100))
   }

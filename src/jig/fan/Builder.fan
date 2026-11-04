@@ -181,9 +181,11 @@ class Builder
     pods.each |p| { nameWidth = nameWidth.max(p.size) }
     targets.each |t| { targetWidth = targetWidth.max(t.size) }
     this.quiet  = quiet
-    this.tty    = tty ?: Term.isTty
-    this.width  = this.tty ? Term.width : 80
+    isTty      := tty ?: Term.isTty
+    this.term   = Term(out, Env.cur.err, isTty, isTty)
+    this.width  = term.width
     this.out    = out
+    this.region = LiveRegion(term) |->Str[]| { frame }
   }
 
   ** Run build and return exit code.
@@ -191,36 +193,19 @@ class Builder
   {
     // blank line spaces results off from the command line
     out.printLine
-    pool := startTicker
+    region.start
     exit := 0
     scripts.eachWhile |script|
     {
       done.val = false
-      exit = Term.exec(Term.fan.add(script.osPath).addAll(targets), |line| { parseLine(line) }) |->Bool| { done.val }
+      exit = Proc.exec(Proc.fan.add(script.osPath).addAll(targets), |line| { parseLine(line) }) |->Bool| { done.val }
       if (!done.val) endPod(exit == 0)
       return exit != 0 || failedPod != null ? true : null
     }
 
     // stop ticker before writing summary
-    running.val = false
-    pool?.stop?.join(1sec)
-    if (tty) out.print(erase).flush
+    region.stop
     return summary(exit)
-  }
-
-  ** Redraw every 100ms so elapsed time moves during long steps.
-  private ActorPool? startTicker()
-  {
-    if (!tty) return null
-    pool := ActorPool { it.name = "jigTicker"; it.maxThreads = 1 }
-    self := Unsafe(this)
-    flag := this.running
-    Actor(pool) |->Obj?|
-    {
-      while (flag.val) { Actor.sleep(100ms); ((Builder)self.val).redraw }
-      return null
-    }.send(null)
-    return pool
   }
 
 //////////////////////////////////////////////////////////////////////////
@@ -304,15 +289,15 @@ class Builder
     if (!quiet)
     {
       lines.add("  " + nameCol(pod) + targetCol(target) +
-        (ok ? color(Term.green, "ok") : color(Term.red, "fail")) + " " +
-        color(Term.dim, "(${StatusBar.fmtDurMs(now - podStart)})"))
+        (ok ? term.ok("ok") : term.err("fail")) + " " +
+        term.dim("(${StatusBar.fmtDurMs(now - podStart)})"))
 
       // warnings on a good pod are shown inline without the build
       // steps after them; errors wait for the summary so they sit
       // right above the final line
-      if (ok) msgs.each |s| { if (!s.startsWith(" ")) lines.add(color(Term.dim, "    $s")) }
+      if (ok) msgs.each |s| { if (!s.startsWith(" ")) lines.add(term.dim("    $s")) }
     }
-    if (!ok) details.add([color(Term.red, "FAIL: $pod [$target]")].addAll(msgs))
+    if (!ok) details.add([term.err("FAIL: $pod [$target]")].addAll(msgs))
     msgs.clear
     printAbove(lines)
   }
@@ -341,14 +326,14 @@ class Builder
     else if (s.size > avail) s = s[0..<avail-1] + "…"
 
     head := pod == null ? "" : nameCol(pod) + targetCol(curTarget ?: "")
-    return "  " + head + color(Term.dim, s.isEmpty ? timer.trimStart : s + timer)
+    return "  " + head + term.dim(s.isEmpty ? timer.trimStart : s + timer)
   }
 
   ** Target in brackets padded so status words line up.
   private Str targetCol(Str target, Bool colored := true)
   {
     s := "[$target]".padr(targetWidth + 2) + " "
-    return colored ? color(Term.magenta, s) : s
+    return colored ? term.accent(s) : s
   }
 
   ** Pod name plus dim dot leaders out to the status column; the
@@ -356,59 +341,25 @@ class Builder
   private Str nameCol(Str pod, Bool colored := true)
   {
     dots := "·" * (nameWidth - pod.size + Runner.minDots)
-    return "$pod " + (colored ? color(Term.dim, dots) : dots) + " "
+    return "$pod " + (colored ? term.dim(dots) : dots) + " "
   }
 
   ** Print lines above the status bar.
-  private Void printAbove(Str[] lines)
-  {
-    if (!tty) { lines.each |s| { out.printLine(s) }; return }
-    lock.lock
-    try
-    {
-      // one write so the console never paints a partial frame
-      buf := StrBuf().add(erase)
-      lines.each |s| { buf.add(s).add("\n") }
-      Term.write(out, buf.add(frame).toStr)
-    }
-    finally lock.unlock
-  }
+  private Void printAbove(Str[] lines) { region.printAbove(lines) }
 
-  ** Redraw live pod line and status bar in place; called from
-  ** both the output pump thread and the ticker.
-  private Void redraw()
-  {
-    if (!tty) return
-    lock.lock
-    try
-    {
-      if (running.val) Term.write(out, erase + frame)
-    }
-    finally lock.unlock
-  }
+  ** Redraw live pod line and status bar in place.
+  private Void redraw() { region.redraw }
 
-  ** Live pod line and status bar, or empty once stopped.
-  private Str frame()
+  ** Lines of the live region: live pod line and status bar.
+  private Str[] frame()
   {
-    if (!running.val) return ""
+    lines := Str[,]
     live := liveLine
-    buf  := StrBuf()
-    drawn := 0
-    if (live != null) { buf.add(live).add("\n"); drawn++ }
-    if (!quiet) { buf.add("\n"); drawn++ }
+    if (live != null) lines.add(live)
+    if (!quiet) lines.add("")
     label := quiet ? curPod : null
-    buf.add(StatusBar.render(total, built, failed, label, elapsed, width, true, "BUILD"))
-    liveDrawn = drawn
-    return buf.toStr
-  }
-
-  ** Escape sequence to clear the status bar and any live
-  ** lines above it, leaving the cursor where they started.
-  private Str erase()
-  {
-    s := Term.clearLine + Term.upClearLine * liveDrawn
-    liveDrawn = 0
-    return s
+    lines.add(StatusBar.render(total, built, failed, label, elapsed, width, term.color, "BUILD"))
+    return lines
   }
 
   ** Print errors and final summary and return exit code.
@@ -426,7 +377,7 @@ class Builder
     // output dirs confirm where pods landed; warnings get a count
     // since the lines themselves are dim and easy to scroll past
     to := outDirs.isEmpty ? "" : " to " + outDirs.map |d| { relPath(d) }.join(", ")
-    ws := warns == 0 ? "" : " " + color(Term.yellow, "[" + (warns == 1 ? "1 warning" : "$warns warnings") + "]")
+    ws := warns == 0 ? "" : " " + term.warn("[" + (warns == 1 ? "1 warning" : "$warns warnings") + "]")
 
     // name what ran; counts are pods through the last target
     verb := "ran ${targets.last} on"
@@ -434,12 +385,12 @@ class Builder
     else if (targets.last == "compile") verb = targets.contains("clean") ? "cleaned and built" : "built"
     if (failedPod == null && exit == 0)
     {
-      out.printLine(color(Term.green, "✓ ${verb.capitalize} ${pods(podsDone)}$to") + ws + color(Term.green, " in $dur"))
+      out.printLine(term.ok("✓ ${verb.capitalize} ${pods(podsDone)}$to") + ws + term.ok(" in $dur"))
       return 0
     }
 
     what := failedPod == null || failedPod.isEmpty ? "Build failed (exit $exit)" : "$failedPod failed"
-    out.printLine(color(Term.red, "✗ $what; $verb $podsDone of ${pods(podCount)}$to") + ws + color(Term.red, " in $dur"))
+    out.printLine(term.err("✗ $what; $verb $podsDone of ${pods(podCount)}$to") + ws + term.err(" in $dur"))
     return 1
   }
 
@@ -452,8 +403,6 @@ class Builder
   }
 
   private static Str pods(Int n) { n == 1 ? "1 pod" : "$n pods" }
-
-  private Str color(Str c, Str s) { tty ? "$c$s$Term.reset" : s }
 
   private Duration elapsed() { now - start }
 
@@ -468,6 +417,8 @@ class Builder
 //////////////////////////////////////////////////////////////////////////
 
   private OutStream out
+  private Term term
+  private LiveRegion region
   private const File[] scripts
   private const Str[] targets
   private const Bool quiet
@@ -476,7 +427,6 @@ class Builder
   private Int targetWidth
   private Int podsDone
   private Str? curTarget
-  private const Bool tty
   private const Int width
   private const Duration start := Duration.now
   private const File cwd
@@ -491,8 +441,5 @@ class Builder
   private Duration podStart := Duration.now
   private Str[] msgs := [,]
   private Str[][] details := [,]
-  private Int liveDrawn
-  private const Lock lock := Lock.makeReentrant
-  private const AtomicBool running := AtomicBool(true)
   private const AtomicBool done := AtomicBool(false)
 }

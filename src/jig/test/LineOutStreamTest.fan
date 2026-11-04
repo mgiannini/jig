@@ -40,7 +40,7 @@ class LineOutStreamTest : Test
   Void testExec()
   {
     lines := Str[,]
-    exit := Term.exec(["sh", "-c", "echo one; echo two >&2; exit 3"]) |s| { lines.add(s) }
+    exit := Proc.exec(["sh", "-c", "echo one; echo two >&2; exit 3"]) |s| { lines.add(s) }
     verifyEq(exit, 3)
     verifyEq(lines.sort, ["one", "two"])
   }
